@@ -1,0 +1,10 @@
+.dart_tool/
+build/
+example/.dart_tool/
+example/build/
+test/failures/
+misc/
+pubspec.lock
+example/pubspec.lock
+AGENTS.md
+README_TEMPLATE.md

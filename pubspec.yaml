@@ -1,0 +1,32 @@
+name: any_treemap
+description: A composable Flutter treemap with immutable hierarchical data, multiple layouts, drill-down interaction, and replaceable visual layers.
+
+topics:
+  - treemap
+  - charts
+  - visualization
+  - hierarchy
+  - graph
+
+homepage: https://github.com/andry-brill/a-treemap
+repository: https://github.com/andry-brill/a-treemap
+issue_tracker: https://github.com/andry-brill/a-treemap/issues
+
+screenshots:
+  - description: 'any-treemap examples'
+    path: example/web/example.png
+
+version: 1.0.0
+
+environment:
+  sdk: '>=3.8.0 <4.0.0'
+  flutter: '>=3.32.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter

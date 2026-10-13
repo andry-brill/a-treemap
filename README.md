@@ -251,12 +251,13 @@ Pass this constant to `TreemapChart.transition`; leave `transition` null when up
 
 ## Layout
 
-**`TreemapLayoutConfig<K>`** - top-level geometry configuration for spacing, minimum visible size, aggregation, and branch rule resolution.
+**`TreemapLayoutConfig<K>`** - top-level geometry configuration for spacing, visible depth, minimum visible size, aggregation, and branch rule resolution.
 
 - `policy` - `TreemapLayoutPolicy<K>` used to resolve a rule for each branch; defaults to the standard squarified policy.
 - `outerPadding` - space removed from the viewport before root layout; defaults to zero.
 - `levelPadding` - space removed inside every branch before laying out its children; defaults to zero.
 - `innerSpacing` - gutter applied between sibling rectangles; defaults to `0`.
+- `maxVisibleDepth` - maximum hierarchy levels below the current zoom focus; defaults to `null` (unlimited). `1` shows immediate children; `2` also shows grandchildren. Values must be positive or null.
 - `minimumWidth` - minimum acceptable node width for hide/aggregate policies; defaults to `0`.
 - `minimumHeight` - minimum acceptable node height for hide/aggregate policies; defaults to `0`.
 - `minimumArea` - minimum acceptable node area for hide/aggregate policies; defaults to `0`.
@@ -264,6 +265,10 @@ Pass this constant to `TreemapChart.transition`; leave `transition` null when up
 - `insufficientSpacePolicy` - behavior when every sibling fails its minimum: keep/aggregate, hide, or throw; defaults to `show`.
 
 Padding and spacing affect geometry. Minimums affect which data is visible and can redistribute area, unlike layer-level `maximumNodes`, which only limits rendering.
+
+Visible depth limits layout traversal while preserving the complete source tree and all descendant weights. A branch at the limit becomes a visible tile with its full total; it still has children and supports the existing drill-down interaction. The limit restarts after zooming or revealing an aggregate. Geometry depths, depth-based layout rules, and breadcrumb paths retain their existing absolute-depth semantics.
+
+Use `layout.copyWith(maxVisibleDepth: 1)` to show one level, and `layout.copyWith(maxVisibleDepth: null)` to restore unlimited depth. Omitting the argument preserves the current value. Changing the limit preserves zoom focus and selection, and clears transient hover, tooltip, and keyboard targets that become hidden. Existing transition settings also apply to depth changes.
 
 ```dart
 const layout = TreemapLayoutConfig<String>(

@@ -5,6 +5,8 @@ import 'dart:math' as math;
 import 'geometry.dart';
 import 'model.dart';
 
+const _unspecifiedVisibleDepth = Object();
+
 /// Built-in algorithms for partitioning sibling weights into rectangles.
 enum TreemapLayoutAlgorithm {
   /// Groups nodes into rows chosen to keep rectangles close to square.
@@ -215,13 +217,14 @@ final class TreemapLayoutPolicy<K> {
   }
 }
 
-/// Configures geometry, minimum-node handling, and rule resolution.
+/// Configures geometry, visible depth, minimum-node handling, and rule resolution.
 final class TreemapLayoutConfig<K> {
   const TreemapLayoutConfig({
     TreemapLayoutPolicy<K>? policy,
     this.outerPadding = TreemapInsets.zero,
     this.levelPadding = TreemapInsets.zero,
     this.innerSpacing = 0,
+    this.maxVisibleDepth,
     this.minimumWidth = 0,
     this.minimumHeight = 0,
     this.minimumArea = 0,
@@ -235,6 +238,15 @@ final class TreemapLayoutConfig<K> {
   final TreemapInsets levelPadding;
   final double innerSpacing;
 
+  /// Maximum number of hierarchy levels below the current focus to lay out.
+  ///
+  /// Null shows every level. A positive value of 1 shows immediate children;
+  /// 2 also shows grandchildren. The limit restarts when the focus changes,
+  /// including when revealing an aggregate. Branches at the limit retain
+  /// their source children and full descendant weight for drill-down.
+  /// Geometry depths and depth-based layout rules remain absolute.
+  final int? maxVisibleDepth;
+
   /// Global minimum visible width and height for a node.
   ///
   /// These thresholds are evaluated when [minimumNodePolicy] is
@@ -245,11 +257,16 @@ final class TreemapLayoutConfig<K> {
   final TreemapMinimumNodePolicy minimumNodePolicy;
   final TreemapInsufficientSpacePolicy insufficientSpacePolicy;
 
+  /// Copies this configuration, preserving omitted values.
+  ///
+  /// Pass an int or null for [maxVisibleDepth]. Explicit null restores
+  /// unlimited depth; omitting it preserves the current limit.
   TreemapLayoutConfig<K> copyWith({
     TreemapLayoutPolicy<K>? policy,
     TreemapInsets? outerPadding,
     TreemapInsets? levelPadding,
     double? innerSpacing,
+    Object? maxVisibleDepth = _unspecifiedVisibleDepth,
     double? minimumWidth,
     double? minimumHeight,
     double? minimumArea,
@@ -261,6 +278,9 @@ final class TreemapLayoutConfig<K> {
       outerPadding: outerPadding ?? this.outerPadding,
       levelPadding: levelPadding ?? this.levelPadding,
       innerSpacing: innerSpacing ?? this.innerSpacing,
+      maxVisibleDepth: identical(maxVisibleDepth, _unspecifiedVisibleDepth)
+          ? this.maxVisibleDepth
+          : maxVisibleDepth as int?,
       minimumWidth: minimumWidth ?? this.minimumWidth,
       minimumHeight: minimumHeight ?? this.minimumHeight,
       minimumArea: minimumArea ?? this.minimumArea,
@@ -271,6 +291,11 @@ final class TreemapLayoutConfig<K> {
   }
 
   void validate() {
+    if (maxVisibleDepth != null && maxVisibleDepth! < 1) {
+      throw const TreemapLayoutException(
+        'maxVisibleDepth must be null or greater than zero.',
+      );
+    }
     final values = {
       'innerSpacing': innerSpacing,
       'minimumWidth': minimumWidth,
@@ -297,6 +322,7 @@ final class TreemapLayoutConfig<K> {
   @override
   String toString() =>
       'TreemapLayoutConfig(spacing: $innerSpacing, padding: $outerPadding, '
+      'maxVisibleDepth: $maxVisibleDepth, '
       'minimum: ${minimumWidth}x$minimumHeight/$minimumArea, '
       'policy: ${minimumNodePolicy.name})';
 }
@@ -457,6 +483,11 @@ final class TreemapLayoutEngine<K> {
         nodes.add(geometry);
       }
 
+      final visibleDepth = work.childDepth - resolvedFocus.childDepth + 1;
+      if (effectiveConfig.maxVisibleDepth != null &&
+          visibleDepth >= effectiveConfig.maxVisibleDepth!) {
+        continue;
+      }
       for (final item in partition.items.reversed) {
         final node = item.node;
         final bounds = partition.bounds[item.key];

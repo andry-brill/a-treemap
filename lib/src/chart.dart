@@ -95,7 +95,7 @@ final class _TreemapChartState<K> extends State<TreemapChart<K>> {
       _controller.removeListener(_handleControllerChanged);
       if (_ownsController) _controller.dispose();
       _installController(widget.controller);
-    } else {
+    } else if (!identical(oldWidget.root, widget.root)) {
       _controller.synchronize(widget.root);
     }
   }
@@ -199,10 +199,13 @@ final class _TreemapViewportState<K> extends State<_TreemapViewport<K>> {
   Timer? _longPressTimer;
   Timer? _tooltipTimer;
   bool _longPressFired = false;
+  bool _visibleDepthChanged = false;
 
   @override
   void didUpdateWidget(covariant _TreemapViewport<K> oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _visibleDepthChanged |=
+        oldWidget.layout.maxVisibleDepth != widget.layout.maxVisibleDepth;
     if (!identical(oldWidget.root, widget.root) ||
         !identical(oldWidget.layout, widget.layout)) {
       _cache.clear();
@@ -237,6 +240,10 @@ final class _TreemapViewportState<K> extends State<_TreemapViewport<K>> {
         if (size.isEmpty) return const SizedBox.shrink();
         final media = MediaQuery.of(context);
         final next = _resolveSnapshot(size);
+        if (_visibleDepthChanged) {
+          _visibleDepthChanged = false;
+          _clearHiddenDepthTargets(next);
+        }
         if (!_sameGeometry(_target, next)) {
           _from = _displayed ?? _target ?? next;
           _target = next;
@@ -264,6 +271,35 @@ final class _TreemapViewportState<K> extends State<_TreemapViewport<K>> {
         );
       },
     );
+  }
+
+  void _clearHiddenDepthTargets(TreemapGeometrySnapshot<K> snapshot) {
+    final visibleKeys = snapshot.visibleNodes.map((node) => node.key).toSet();
+    if (_tooltipKey != null && !visibleKeys.contains(_tooltipKey)) {
+      _tooltipTimer?.cancel();
+      _tooltipKey = null;
+    }
+    if (_keyboardKey != null && !visibleKeys.contains(_keyboardKey)) {
+      _keyboardKey = null;
+    }
+    _clearPointerState();
+    final controller = widget.controller;
+    final hoveredKey = controller.hoveredKey;
+    if (hoveredKey != null && !visibleKeys.contains(hoveredKey)) {
+      // Controller listeners can rebuild ancestors, so notify after layout.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            widget.controller != controller ||
+            controller.hoveredKey != hoveredKey) {
+          return;
+        }
+        final node = _target?.index[hoveredKey];
+        if (node == null || node.opacity <= 0 || node.bounds.isEmpty) {
+          controller.setHovered(null);
+          widget.interaction.onHoverChanged?.call(null);
+        }
+      });
+    }
   }
 
   TreemapGeometrySnapshot<K> _resolveSnapshot(Size size) {

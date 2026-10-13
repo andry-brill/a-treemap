@@ -20,6 +20,7 @@ feature or meaningfully different variant should have a runnable example.
 | Binary by weight | `layout-binary-weight` | `lib/scenarios/layout.dart` | Weight-balanced partitions. |
 | Binary by count | `layout-binary-count` | `lib/scenarios/layout.dart` | Count-balanced partitions. |
 | Multilevel/depth/parent/resolver rules | `layout-multilevel` | `lib/scenarios/layout.dart` | Inspect mixed branch strategies. |
+| Visible depth relative to zoom focus (`maxVisibleDepth`: null, 1, 2), compact category card, text/count widget labels, grouping tabs, inline hierarchy and drill-down | `layout-category-card` | `lib/scenarios/layout.dart`, `lib/category_card_example.dart` | Select All (null), Depth 1 or Depth 2 above the chart. With Level 1 grouping and Depth 1, click Expenses 19, then Food 6 to reveal successive levels; use Back to return. Change depth while zoomed, then compare Level 1, Level 2 and Flat grouping with the complete hierarchy below. |
 | Stable source/ascending/descending/custom sort policy | `layout-sort-policies` | `lib/scenarios/layout.dart` | Ascending stable order; edit the enum. |
 | Four layout origins | `layout-four-origins` | `lib/scenarios/layout.dart` | Compare all corners together. |
 | Horizontal-first and vertical-first | `layout-axis-orders` | `lib/scenarios/layout.dart` | Compare both primary axes. |

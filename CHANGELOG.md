@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0
+
+- Added `TreemapLayoutConfig.maxVisibleDepth` for depth-limited rendering
+  relative to the current zoom focus. Boundary branches retain full totals
+  and drill-down behavior; null preserves unlimited depth. The category card
+  example compares All (null), Depth 1, and Depth 2 above the chart.
+
 ## 1.0.0
 
 - Added `TreemapChart.surrounding`, `TreemapSurroundingContent`, and

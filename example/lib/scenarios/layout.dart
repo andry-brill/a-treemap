@@ -1,6 +1,7 @@
 import 'package:any_treemap/any_treemap.dart';
 import 'package:flutter/material.dart';
 
+import '../category_card_example.dart';
 import '../sample_data.dart';
 import '../scenario.dart';
 
@@ -269,6 +270,14 @@ final layoutScenarios = <ExampleScenario>[
         ),
       ),
     ),
+  ),
+  ExampleScenario(
+    id: 'layout-category-card',
+    title: 'Category card: visible depth and drill-down',
+    category: 'Layout policy',
+    description:
+        'A 440 px category card with 20 merchants and a Visible depth control above the chart, initially All (null). With Level 1 grouping, Depth 1 shows Expenses 19 and Unassigned 1; Depth 2 shows Food 6, Transport 5, and Other expenses 8 inside Expenses. Click Expenses, then Food at Depth 1 to reveal each next level; the limit restarts from the zoom focus, and Back returns to its parent. Changing depth preserves focus. The Level 1, Level 2, and Flat tabs below the chart change the supplied hierarchy and reset focus while preserving the depth setting. The full input hierarchy and derived totals remain listed below. Tiles use text/count labels, 10 px corners, 2 px gutters, and 8 px nested/label padding.',
+    builder: (_) => const CategoryCardExample(),
   ),
 ];
 

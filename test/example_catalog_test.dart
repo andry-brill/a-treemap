@@ -8,7 +8,7 @@ import '../example/lib/main.dart';
 
 void main() {
   test('every scenario has detailed tooltip metadata', () {
-    expect(allScenarios, hasLength(43));
+    expect(allScenarios, hasLength(44));
     for (final scenario in allScenarios) {
       expect(
         scenario.description.trim().length,

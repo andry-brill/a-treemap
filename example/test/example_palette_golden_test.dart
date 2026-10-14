@@ -2,8 +2,7 @@ import 'package:any_treemap/any_treemap.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// ignore: avoid_relative_lib_imports
-import '../example/lib/sample_data.dart';
+import 'support/sample.dart';
 import 'support/golden_labels.dart';
 import 'support/pump_app.dart';
 

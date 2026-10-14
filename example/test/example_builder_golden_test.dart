@@ -2,19 +2,21 @@ import 'package:any_treemap/any_treemap.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// ignore: avoid_relative_lib_imports
-import '../example/lib/main.dart';
+import 'package:any_treemap_example/playground/presets.dart';
+import 'package:any_treemap_example/playground/preview.dart';
 import 'support/pump_app.dart';
 
 void main() {
   testWidgets('builder example keeps Other near its minimum visual contract', (
     tester,
   ) async {
-    final scenario = allScenarios.singleWhere(
+    final scenario = allPresets.singleWhere(
       (item) => item.id == 'appearance-builders-virtualized',
     );
     await tester.pumpTreemapApp(
-      Material(child: Builder(builder: scenario.builder)),
+      Material(
+        child: PlaygroundPreview(config: scenario.config, showToolbar: false),
+      ),
       surfaceSize: const Size(1000, 700),
     );
     await tester.pump();

@@ -1,58 +1,58 @@
-# Feature-to-example coverage
+# Feature-to-preset coverage
 
-Every row points to a named scenario in the runnable catalog. Keep this matrix
-aligned with the catalog: each scenario should appear once, and every public
-feature or meaningfully different variant should have a runnable example.
+Every row names a runnable playground preset. Presets expand into the shared
+property model and dataset registry; each appears exactly once in this matrix.
+Every public feature and meaningfully different variant retains representative coverage.
 
 | Feature or meaningful variant | Scenario | Source | What to try |
 |---|---|---|---|
-| Explicit immutable hierarchy | `data-explicit-tree` | `lib/scenarios/data.dart` | Inspect nested source nodes. |
-| Flat records and grouping factory | `data-from-records` | `lib/scenarios/data.dart` | Compare with the explicit tree. |
-| Visual-free core, explicit no-op tiles, and neutral all-zero output | `data-empty-state` | `lib/scenarios/data.dart` | Observe that no package-defined empty visual is rendered. |
-| Invalid input and typed errors | `data-invalid-errors` | `lib/scenarios/data.dart` | Read the issue and correction. |
-| Optional isolate layout | `performance-isolate-layout` | `lib/scenarios/data.dart` | Run a 10,000-node layout. |
-| Squarified | `layout-squarified` | `lib/scenarios/layout.dart` | Default area-preserving layout. |
-| Resquarified stable updates | `layout-resquarified` | `lib/scenarios/layout.dart` | Compare topology during updates. |
-| Slice | `layout-slice` | `lib/scenarios/layout.dart` | Horizontal flow. |
-| Dice | `layout-dice` | `lib/scenarios/layout.dart` | Vertical flow. |
-| Alternating slice-and-dice | `layout-alternating` | `lib/scenarios/layout.dart` | Observe absolute-depth alternation. |
-| Strip | `layout-strip` | `lib/scenarios/layout.dart` | Ordered strip rows. |
-| Binary by weight | `layout-binary-weight` | `lib/scenarios/layout.dart` | Weight-balanced partitions. |
-| Binary by count | `layout-binary-count` | `lib/scenarios/layout.dart` | Count-balanced partitions. |
-| Multilevel/depth/parent/resolver rules | `layout-multilevel` | `lib/scenarios/layout.dart` | Inspect mixed branch strategies. |
-| Visible depth relative to zoom focus (`maxVisibleDepth`: null, 1, 2), compact category card, text/count widget labels, grouping tabs, inline hierarchy and drill-down | `layout-category-card` | `lib/scenarios/layout.dart`, `lib/category_card_example.dart` | Select All (null), Depth 1 or Depth 2 above the chart. With Level 1 grouping and Depth 1, click Expenses 19, then Food 6 to reveal successive levels; use Back to return. Change depth while zoomed, then compare Level 1, Level 2 and Flat grouping with the complete hierarchy below. |
-| Stable source/ascending/descending/custom sort policy | `layout-sort-policies` | `lib/scenarios/layout.dart` | Ascending stable order; edit the enum. |
-| Four layout origins | `layout-four-origins` | `lib/scenarios/layout.dart` | Compare all corners together. |
-| Horizontal-first and vertical-first | `layout-axis-orders` | `lib/scenarios/layout.dart` | Compare both primary axes. |
-| Outer/level padding, gutters, explicit minimum dimensions, and Other | `layout-minimum-aggregation` | `lib/scenarios/layout.dart` | Resize and activate Other. |
-| Custom layout strategy | `layout-custom-strategy` | `lib/scenarios/layout.dart` | Equal-column extension point. |
-| Direct per-node Flutter colors that bypass scale resolution | `appearance-direct-node-colors` | `lib/scenarios/appearance.dart` | Compare assigned colors with the deliberately conflicting scale. |
-| Exact color scale | `appearance-exact-scale` | `lib/scenarios/appearance.dart` | Exact values and fallback. |
-| Categorical color scale and configurable `TreemapLegendItem`/`TreemapOverlayContainer` builders, title, labels, wrapping, and semantics label | `appearance-categorical-scale` | `lib/scenarios/appearance.dart` | Inspect the rounded theme-aware wrapper, custom 16 px swatches, and compact text. |
-| Numeric range color scale | `appearance-range-scale` | `lib/scenarios/appearance.dart` | Range boundaries and legend. |
-| Interpolated color scale, configurable stop formatter, `TreemapLegendBar`/`TreemapLegendPointer` builders, bar size, sampling, semantics, and pointer geometry | `appearance-interpolated-scale` | `lib/scenarios/appearance.dart` | Inspect the unit labels and custom 200×14 px rounded bar. |
-| Saturation color scale | `appearance-saturation-scale` | `lib/scenarios/appearance.dart` | One-hue intensity mapping. |
-| Automatic global interpolation, infinity defaults, branch totals, weight-based hover pointer, and data updates | `appearance-auto-global` | `lib/scenarios/appearance.dart` | Compare Depth 1/2/All and drill into A: bounds stay 10–60. Update data changes the maximum to 100. |
-| Automatic visible interpolation, depth limits, focus, and destination-domain transitions | `appearance-auto-visible` | `lib/scenarios/appearance.dart` | Depth 1 gives 40–60; Depth 2 gives 10–60; drill into A for 10–30. |
-| Independently fixed and automatic minimum/maximum | `appearance-auto-mixed-bounds` | `lib/scenarios/appearance.dart` | Toggle fixed minimum 0 or maximum 100, then update the data. |
-| Automatic saturation and shared domain/legend updates | `appearance-auto-saturation` | `lib/scenarios/appearance.dart` | Compare indigo saturation across zoom and data updates; hover for the numeric pointer. |
-| Standalone resolveDomain, controller-free legend, and custom appearance resolvedScale | `appearance-auto-standalone` | `lib/scenarios/appearance.dart` | Inspect the 15/30/55 custom tiles and the matching 15–55 bar. |
-| Chart-owned destination snapshots/domains, custom layer resolution, scoped chrome, and external presentation observers | `appearance-presentation-state` | `lib/scenarios/appearance.dart` | Change depth, drill into A, and compare the custom tiles, scoped domain readout, and external legend. |
-| Explicit tiles, optimized bounded canvas labels, configurable/freely built lines, fallbacks, numeric precision, styles, opacity, color resolver, ellipsis, scale, gradients, borders, radius, and state resolver | `appearance-gradients-states` | `lib/scenarios/appearance.dart` | Inspect the title/value/depth lines, then hover and select. |
-| `TreemapSurroundingGrid.fromMap`, natural-height rows, caller-sized content, and start/end placement; constraint-fitted 1:1 container, focused second-level navigation, custom selected breadcrumb styling, paired opacity-scale legends, edge-to-edge outer layout, transparent groups, responsive trailing-edge alignment, per-group aggregation, 32 px group spacing, and 16 px rounded/guttered children | `appearance-screenshot` | `lib/scenarios/appearance.dart` | Use the mapped top-start Level 1 > Level 2 breadcrumb and compare it with the paired mapped top-end scales; their 56 px SizedBoxes determine the row height, their `FittedBox` owns tight-cell scaling, and empty middle side slots let the treemap span the full width. |
-| Composite tiles, fully customizable widget labels, clipping, layout minimum dimensions, aggregation, culling, and virtualization | `appearance-builders-virtualized` | `lib/scenarios/appearance.dart` | Inspect 80 icon/text labels over 79 normal leaves and a small Other block aggregating 41 tiny leaves. |
-| Discrete legend, custom items, middle-start/vertical layout | `appearance-discrete-legend` | `lib/scenarios/appearance.dart` | Custom chip items. |
-| Bar/segmented legend, custom pointer, middle-end layout | `appearance-bar-legend` | `lib/scenarios/appearance.dart` | Hover tiles to move the pointer. |
-| Uncontrolled single selection | `interaction-uncontrolled-selection` | `lib/scenarios/interaction.dart` | Tap to toggle. |
-| Controlled selection | `interaction-controlled-selection` | `lib/scenarios/interaction.dart` | Parent owns the set. |
-| Multi-selection | `interaction-multi-selection` | `lib/scenarios/interaction.dart` | Select several keys. |
-| Replaceable tooltip content/container builders, configurable `TreemapTooltipContainer`, deepest-leaf anchor, and lifecycle | `interaction-hover-tooltip` | `lib/scenarios/interaction.dart` | Hover, tap, inspect the configured standard shell, and wait for hide delay. |
-| Tap drill-down, controller, and configurable `TreemapBreadcrumbItem`/separator/overlay widgets through thin builders | `interaction-drilldown-controller` | `lib/scenarios/interaction.dart` | Use chart taps and controller buttons, then inspect the themed wrapper and ellipsis result. |
-| Animated breadcrumb indicator and aggregate reveal | `interaction-aggregate-reveal` | `lib/scenarios/interaction.dart` | Activate Other and navigate back. |
-| Keyed data updates, resquarify, enter/exit animation | `interaction-updates-animation` | `lib/scenarios/interaction.dart` | Repeatedly update weights. |
-| Mouse, touch, stylus, tap, long press, cursor callbacks | `interaction-pointer-modes` | `lib/scenarios/interaction.dart` | Use available device inputs. |
-| Explicit replaceable semantics layer and keyboard traversal/activate/back | `accessibility-keyboard-semantics` | `lib/scenarios/accessibility.dart` | Use arrows, Enter, and Escape. |
-| RTL labels/tooltips plus explicit RTL geometry policy | `accessibility-rtl` | `lib/scenarios/accessibility.dart` | Inspect direction independently. |
-| Text scaling, bounded labels, dark theme, reduced animation | `accessibility-text-theme` | `lib/scenarios/accessibility.dart` | Inspect ellipsis and height-based omission. |
-| Locale-aware value formatting | `accessibility-locale-formatting` | `lib/scenarios/accessibility.dart` | German decimal output. |
-| Reduced motion | `accessibility-reduced-motion` | `lib/scenarios/accessibility.dart` | Environment disables transitions. |
+| Explicit immutable hierarchy | `data-explicit-tree` | `lib/scenarios/data.dart` | Six weighted leaves form Consumer 100 and Business 80. Tile area follows weight. |
+| Flat records and grouping factory | `data-from-records` | `lib/scenarios/data.dart` | Four sales records use fromRecords to create North 85 and South 56. |
+| Visual-free core, explicit no-op tiles, and neutral all-zero output | `data-empty-state` | `lib/scenarios/data.dart` | A zero-weight leaf produces no tiles and no built-in empty message. |
+| Invalid input and typed errors | `data-invalid-errors` | `lib/scenarios/data.dart` | NaN on key bad produces a typed validation error. |
+| Optional isolate layout | `performance-isolate-layout` | `lib/scenarios/data.dart` | Run layout for 10,000 leaves and inspect the result. |
+| Squarified | `layout-squarified` | `lib/scenarios/layout.dart` | Weighted tiles stay close to square. |
+| Resquarified stable updates | `layout-resquarified` | `lib/scenarios/layout.dart` | Change Data revision to compare stable topology across updates. |
+| Slice | `layout-slice` | `lib/scenarios/layout.dart` | Sibling weights divide the height into horizontal slices. |
+| Dice | `layout-dice` | `lib/scenarios/layout.dart` | Sibling weights divide the width into vertical columns. |
+| Alternating slice-and-dice | `layout-alternating` | `lib/scenarios/layout.dart` | Horizontal and vertical slicing alternate by depth. |
+| Strip | `layout-strip` | `lib/scenarios/layout.dart` | Ordered strips balance tile shape and source order. |
+| Binary by weight | `layout-binary-weight` | `lib/scenarios/layout.dart` | Recursive splits balance the total weight of each half. |
+| Binary by count | `layout-binary-count` | `lib/scenarios/layout.dart` | Recursive splits balance the node count of each half. |
+| Multilevel/depth/parent/resolver rules | `layout-multilevel` | `lib/scenarios/layout.dart` | Depth 2 uses dice; Business uses binary layout; the resolver overrides Consumer. Change the rule rows to compare. |
+| Visible depth, category composition, widget labels, shared grouping and drill-down | `layout-category-card` | `lib/scenarios/layout.dart` | Expenses totals 19 and Food totals 6. Change visible depth and grouping, then drill into branches. |
+| Stable source/ascending/descending/custom sort policy | `layout-sort-policies` | `lib/scenarios/layout.dart` | Smallest weights appear first. Compare source, descending and custom label order. |
+| Four layout origins | `layout-four-origins` | `lib/scenarios/layout.dart` | Four charts share all settings and vary only their starting corner. |
+| Horizontal-first and vertical-first | `layout-axis-orders` | `lib/scenarios/layout.dart` | Two square binary layouts vary only their preferred flow axis. |
+| Outer/level padding, gutters, explicit minimum dimensions, and Other | `layout-minimum-aggregation` | `lib/scenarios/layout.dart` | Small generated leaves become Other below the 70-pixel minimum. Activate Other to reveal its members. |
+| Custom layout strategy | `layout-custom-strategy` | `lib/scenarios/layout.dart` | A registered custom strategy gives every sibling an equal-width column. |
+| Direct per-node Flutter colors that bypass scale resolution | `appearance-direct-node-colors` | `lib/scenarios/appearance.dart` | Three Flutter colors bypass the configured exact scale. |
+| Exact color scale | `appearance-exact-scale` | `lib/scenarios/appearance.dart` | Exact numeric values map to distinct colors; unmapped values use fallback. |
+| Categorical color scale and configurable `TreemapLegendItem`/`TreemapOverlayContainer` builders, title, labels, wrapping, and semantics label | `appearance-categorical-scale` | `lib/scenarios/appearance.dart` | Stable categories hash into a four-color palette. The legend uses rounded swatches and compact labels. |
+| Numeric range color scale | `appearance-range-scale` | `lib/scenarios/appearance.dart` | Blue covers 0–20, orange 20–40 and red 40–60. The legend shows each interval. |
+| Interpolated color scale, configurable stop formatter, `TreemapLegendBar`/`TreemapLegendPointer` builders, bar size, sampling, semantics, and pointer geometry | `appearance-interpolated-scale` | `lib/scenarios/appearance.dart` | Values interpolate over 0–60 from blue through amber to red. Hover for the bar pointer. |
+| Saturation color scale | `appearance-saturation-scale` | `lib/scenarios/appearance.dart` | One indigo hue varies in saturation over the fixed 0–60 range. |
+| Automatic global interpolation, infinity defaults, branch totals, weight-based hover pointer, and data updates | `appearance-auto-global` | `lib/scenarios/appearance.dart` | Bounds stay 10–60 across depth changes and zoom. Revision 1 changes the maximum to 100. |
+| Automatic visible interpolation, depth limits, focus, and destination-domain transitions | `appearance-auto-visible` | `lib/scenarios/appearance.dart` | Depth 1 gives 40–60; depth 2 gives 10–60. Drill into A for 10–30. |
+| Independently fixed and automatic minimum/maximum | `appearance-auto-mixed-bounds` | `lib/scenarios/appearance.dart` | Minimum stays fixed at 0 while the maximum follows data. Set maximum to 100 and minimum to Auto to reverse the override. |
+| Automatic saturation and shared domain/legend updates | `appearance-auto-saturation` | `lib/scenarios/appearance.dart` | Automatic global bounds control indigo saturation and the matching legend. |
+| Standalone resolveDomain, controller-free legend, and custom appearance resolvedScale | `appearance-auto-standalone` | `lib/scenarios/appearance.dart` | A manually resolved domain of 15–55 drives custom tiles and a standalone legend. |
+| Chart-owned presentation, custom tiles, scope, fromData and external legend callback | `appearance-presentation-state` | `lib/scenarios/appearance.dart` | Custom tiles, scoped text and an external legend share chart-owned destination bounds. Change depth or drill into A. |
+| Explicit tiles, optimized bounded canvas labels, configurable/freely built lines, fallbacks, numeric precision, styles, opacity, color resolver, ellipsis, scale, gradients, borders, radius, and state resolver | `appearance-gradients-states` | `lib/scenarios/appearance.dart` | Hover and select tiles to compare gradients, borders and opacity. Custom canvas lines include depth. |
+| `TreemapSurroundingGrid.fromMap`, natural-height rows, caller-sized content, and start/end placement; constraint-fitted 1:1 container, focused second-level navigation, custom selected breadcrumb styling, paired opacity-scale legends, edge-to-edge outer layout, transparent groups, responsive trailing-edge alignment, per-group aggregation, 32 px group spacing, and 16 px rounded/guttered children | `appearance-screenshot` | `lib/scenarios/appearance.dart` | Blue and pink opacity groups use rounded tiles and trailing paired legends. Small leaves aggregate into Other. |
+| Composite tiles, fully customizable widget labels, clipping, layout minimum dimensions, aggregation, culling, and virtualization | `appearance-builders-virtualized` | `lib/scenarios/appearance.dart` | 120 source nodes produce 79 large leaves and Other. Widget tiles and icon labels are limited to 80 visible nodes. |
+| Discrete legend, custom items, middle-start/vertical layout | `appearance-discrete-legend` | `lib/scenarios/appearance.dart` | A vertical discrete legend uses custom chips in the middle-start cell. |
+| Bar/segmented legend, custom pointer, middle-end layout | `appearance-bar-legend` | `lib/scenarios/appearance.dart` | A vertical segmented bar sits at middle-end. Hover a numeric tile to move the pointer. |
+| Uncontrolled single selection | `interaction-uncontrolled-selection` | `lib/scenarios/interaction.dart` | Tap leaves to toggle one controller-owned selection. Drill-down is disabled. |
+| Controlled selection | `interaction-controlled-selection` | `lib/scenarios/interaction.dart` | Mobile starts selected. The playground owns and accepts the proposed selection set. |
+| Multi-selection | `interaction-multi-selection` | `lib/scenarios/interaction.dart` | Tap several leaves to accumulate or toggle selections without a controller limit. |
+| Replaceable tooltip content/container builders, configurable `TreemapTooltipContainer`, deepest-leaf anchor, and lifecycle | `interaction-hover-tooltip` | `lib/scenarios/interaction.dart` | Hover or tap a leaf for label and weight. A tapped tooltip hides after one second; long press shows a message. |
+| Tap drill-down, controller, and configurable `TreemapBreadcrumbItem`/separator/overlay widgets through thin builders | `interaction-drilldown-controller` | `lib/scenarios/interaction.dart` | Drill into Consumer, then use Back or Reset. Breadcrumbs share the navigation controller. |
+| Animated breadcrumb indicator and aggregate reveal | `interaction-aggregate-reveal` | `lib/scenarios/interaction.dart` | Activate Other to reveal the generated small-node members, then navigate back. |
+| Keyed data updates, resquarify, enter/exit animation | `interaction-updates-animation` | `lib/scenarios/interaction.dart` | Change Data revision to increase Mobile by 20. Resquarified geometry animates for 700 milliseconds. |
+| Mouse, touch, stylus, tap, long press, cursor callbacks | `interaction-pointer-modes` | `lib/scenarios/interaction.dart` | Mouse, touch and stylus events appear in the preview readout. Hold for long press. |
+| Explicit replaceable semantics layer and keyboard traversal/activate/back | `accessibility-keyboard-semantics` | `lib/scenarios/accessibility.dart` | Arrow keys move focus, Enter/Space activates, and Escape/Backspace returns from drill-down. |
+| RTL labels/tooltips plus explicit RTL geometry policy | `accessibility-rtl` | `lib/scenarios/accessibility.dart` | RTL presentation and top-right geometry remain aligned. Text direction and layout origin can be changed separately. |
+| Text scaling, bounded labels, dark theme, reduced animation | `accessibility-text-theme` | `lib/scenarios/accessibility.dart` | Dark theme and 180% preview text scale demonstrate bounded labels. Editor text stays unchanged. |
+| Locale-aware value formatting | `accessibility-locale-formatting` | `lib/scenarios/accessibility.dart` | The German formatter shows weights with one decimal and a comma, such as 55,0. |
+| Reduced motion | `accessibility-reduced-motion` | `lib/scenarios/accessibility.dart` | A configured two-second transition becomes immediate when reduced motion is enabled. Change Data revision to compare. |

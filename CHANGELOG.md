@@ -2,6 +2,15 @@
 
 ## 2.0.0
 
+- Rebuilt the example catalog as a URL-driven property playground. All 50
+  example IDs now select editable presets over shared datasets; customized
+  links include complete settings and support browser Back/Forward.
+- Added searchable property controls, accessible property help, structured
+  palette/range/rule editors, responsive preview sizing, and registered modes
+  for comparisons, custom compositions, standalone legends and isolate layout.
+- Moved example-specific tests and golden coverage into the example package
+  and added example analysis/tests to CI.
+
 - **Breaking:** moved chart snapshots and color domains to immutable
   `TreemapPresentationState`. Removed controller `resolveColorScale` and
   `synchronizeLayout`; use `visual.presentation.resolveColorScale` in layers or

@@ -1,17 +1,23 @@
-import 'package:flutter/widgets.dart';
+import 'playground/config.dart';
 
-final class ExampleScenario {
-  const ExampleScenario({
+final class ExamplePreset {
+  ExamplePreset({
     required this.id,
     required this.title,
     required this.category,
     required this.description,
-    required this.builder,
+    required this.dataKey,
+    this.overrides = const {},
   });
 
   final String id;
   final String title;
   final String category;
   final String description;
-  final WidgetBuilder builder;
+  final String dataKey;
+  final Map<String, Object?> overrides;
+  late final PlaygroundConfig config = PlaygroundConfig.fromOverrides({
+    'data': dataKey,
+    ...overrides,
+  });
 }

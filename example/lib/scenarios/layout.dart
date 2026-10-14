@@ -1,321 +1,227 @@
-import 'package:any_treemap/any_treemap.dart';
 import 'package:flutter/material.dart';
 
-import '../category_card_example.dart';
-import '../sample_data.dart';
 import '../scenario.dart';
 
-Widget _layoutChart(TreemapLayoutConfig<String> layout) {
-  final style = TreemapStyle(
-    tileAppearance: const TreemapAppearance(
-      borderRadius: BorderRadius.all(Radius.circular(6)),
-    ),
-  );
-  return TreemapChart<String>(
-    root: sampleTree(),
-    tiles: sampleTiles(style: style),
-    labels: sampleLabels(style: style),
-    layout: layout,
-    transition: const TreemapTransitionSpec(
-      duration: Duration(milliseconds: 450),
-      curve: Curves.easeInOutCubic,
-    ),
-    clipBehavior: Clip.hardEdge,
-  );
-}
-
-ExampleScenario _algorithm({
-  required String id,
-  required String title,
-  required String description,
-  required TreemapLayoutAlgorithm algorithm,
-}) => ExampleScenario(
-  id: id,
-  title: title,
-  category: 'Layout algorithms',
-  description:
-      '$description $sampleHierarchyDescription The chart also applies 3 px inner spacing, 8 px outer padding, 6 px corners, and a 450 ms keyed transition.',
-  builder: (_) => _layoutChart(
-    TreemapLayoutConfig(
-      innerSpacing: 3,
-      outerPadding: const TreemapInsets.all(8),
-      policy: TreemapLayoutPolicy(
-        rootRule: TreemapLayoutRule(algorithm: algorithm),
-      ),
-    ),
+final layoutScenarios = <ExamplePreset>[
+  ExamplePreset(
+    id: "layout-squarified",
+    title: "Squarified",
+    category: "Layout",
+    description: "Weighted tiles stay close to square.",
+    dataKey: "markets",
+    overrides: {
+      "layout.algorithm": "squarified",
+      "layout.outerPadding.left": 8,
+      "layout.outerPadding.top": 8,
+      "layout.outerPadding.right": 8,
+      "layout.outerPadding.bottom": 8,
+      "animation.enabled": true,
+    },
   ),
-);
-
-final class ExampleEqualColumnsStrategy
-    implements ITreemapLayoutStrategy<String> {
-  @override
-  Map<TreemapKey<String>, TreemapBounds> layout(
-    TreemapStrategyInput<String> input,
-  ) {
-    final width = input.bounds.width / input.items.length;
-    return {
-      for (final entry in input.items.indexed)
-        entry.$2.key: TreemapBounds.fromLTWH(
-          input.bounds.left + entry.$1 * width,
-          input.bounds.top,
-          width,
-          input.bounds.height,
-        ),
-    };
-  }
-}
-
-final layoutScenarios = <ExampleScenario>[
-  _algorithm(
-    id: 'layout-squarified',
-    title: 'Squarified',
+  ExamplePreset(
+    id: "layout-resquarified",
+    title: "Resquarified updates",
+    category: "Layout",
     description:
-        'Uses the squarified strategy to keep weighted tiles close to square while preserving their areas.',
-    algorithm: TreemapLayoutAlgorithm.squarified,
+        "Change Data revision to compare stable topology across updates.",
+    dataKey: "markets",
+    overrides: {
+      "layout.algorithm": "resquarified",
+      "layout.outerPadding.left": 8,
+      "layout.outerPadding.top": 8,
+      "layout.outerPadding.right": 8,
+      "layout.outerPadding.bottom": 8,
+      "animation.enabled": true,
+    },
   ),
-  _algorithm(
-    id: 'layout-resquarified',
-    title: 'Resquarified updates',
-    description:
-        'Uses topology-stable resquarification so keyed data updates move tiles with less visual disruption.',
-    algorithm: TreemapLayoutAlgorithm.resquarified,
+  ExamplePreset(
+    id: "layout-slice",
+    title: "Slice",
+    category: "Layout",
+    description: "Sibling weights divide the height into horizontal slices.",
+    dataKey: "markets",
+    overrides: {
+      "layout.algorithm": "slice",
+      "layout.outerPadding.left": 8,
+      "layout.outerPadding.top": 8,
+      "layout.outerPadding.right": 8,
+      "layout.outerPadding.bottom": 8,
+      "animation.enabled": true,
+    },
   ),
-  _algorithm(
-    id: 'layout-slice',
-    title: 'Slice',
-    description:
-        'Partitions weighted nodes into horizontal slices spanning the available chart width.',
-    algorithm: TreemapLayoutAlgorithm.slice,
+  ExamplePreset(
+    id: "layout-dice",
+    title: "Dice",
+    category: "Layout",
+    description: "Sibling weights divide the width into vertical columns.",
+    dataKey: "markets",
+    overrides: {
+      "layout.algorithm": "dice",
+      "layout.outerPadding.left": 8,
+      "layout.outerPadding.top": 8,
+      "layout.outerPadding.right": 8,
+      "layout.outerPadding.bottom": 8,
+      "animation.enabled": true,
+    },
   ),
-  _algorithm(
-    id: 'layout-dice',
-    title: 'Dice',
-    description:
-        'Partitions weighted nodes into vertical columns spanning the available chart height.',
-    algorithm: TreemapLayoutAlgorithm.dice,
+  ExamplePreset(
+    id: "layout-alternating",
+    title: "Alternating slice/dice",
+    category: "Layout",
+    description: "Horizontal and vertical slicing alternate by depth.",
+    dataKey: "markets",
+    overrides: {
+      "layout.algorithm": "alternatingSliceDice",
+      "layout.outerPadding.left": 8,
+      "layout.outerPadding.top": 8,
+      "layout.outerPadding.right": 8,
+      "layout.outerPadding.bottom": 8,
+      "animation.enabled": true,
+    },
   ),
-  _algorithm(
-    id: 'layout-alternating',
-    title: 'Alternating slice/dice',
-    description:
-        'Alternates horizontal and vertical slicing at successive hierarchy depths.',
-    algorithm: TreemapLayoutAlgorithm.alternatingSliceDice,
+  ExamplePreset(
+    id: "layout-strip",
+    title: "Strip",
+    category: "Layout",
+    description: "Ordered strips balance tile shape and source order.",
+    dataKey: "markets",
+    overrides: {
+      "layout.algorithm": "strip",
+      "layout.outerPadding.left": 8,
+      "layout.outerPadding.top": 8,
+      "layout.outerPadding.right": 8,
+      "layout.outerPadding.bottom": 8,
+      "animation.enabled": true,
+    },
   ),
-  _algorithm(
-    id: 'layout-strip',
-    title: 'Strip',
-    description:
-        'Arranges nodes into ordered strips while balancing aspect ratio and stable sequence.',
-    algorithm: TreemapLayoutAlgorithm.strip,
+  ExamplePreset(
+    id: "layout-binary-weight",
+    title: "Binary by weight",
+    category: "Layout",
+    description: "Recursive splits balance the total weight of each half.",
+    dataKey: "markets",
+    overrides: {
+      "layout.algorithm": "binaryByWeight",
+      "layout.outerPadding.left": 8,
+      "layout.outerPadding.top": 8,
+      "layout.outerPadding.right": 8,
+      "layout.outerPadding.bottom": 8,
+      "animation.enabled": true,
+    },
   ),
-  _algorithm(
-    id: 'layout-binary-weight',
-    title: 'Binary by weight',
-    description:
-        'Recursively splits the viewport into two groups with approximately balanced total weight.',
-    algorithm: TreemapLayoutAlgorithm.binaryByWeight,
+  ExamplePreset(
+    id: "layout-binary-count",
+    title: "Binary by count",
+    category: "Layout",
+    description: "Recursive splits balance the node count of each half.",
+    dataKey: "markets",
+    overrides: {
+      "layout.algorithm": "binaryByCount",
+      "layout.outerPadding.left": 8,
+      "layout.outerPadding.top": 8,
+      "layout.outerPadding.right": 8,
+      "layout.outerPadding.bottom": 8,
+      "animation.enabled": true,
+    },
   ),
-  _algorithm(
-    id: 'layout-binary-count',
-    title: 'Binary by count',
+  ExamplePreset(
+    id: "layout-multilevel",
+    title: "Mixed multilevel policy",
+    category: "Layout",
     description:
-        'Recursively splits nodes into similarly sized groups by item count rather than total weight.',
-    algorithm: TreemapLayoutAlgorithm.binaryByCount,
-  ),
-  ExampleScenario(
-    id: 'layout-multilevel',
-    title: 'Mixed multilevel policy',
-    category: 'Layout policy',
-    description:
-        'Combines a binary-by-weight root, strip at child depth 2, dice under parent key “business”, and squarified when a resolver sees more than four children. $sampleHierarchyDescription',
-    builder: (_) => _layoutChart(
-      TreemapLayoutConfig(
-        innerSpacing: 3,
-        policy: TreemapLayoutPolicy(
-          rootRule: const TreemapLayoutRule(
-            algorithm: TreemapLayoutAlgorithm.binaryByWeight,
-          ),
-          byChildDepth: const {
-            2: TreemapLayoutRule(algorithm: TreemapLayoutAlgorithm.strip),
-          },
-          byParentKey: const {
-            'business': TreemapLayoutRule(
-              algorithm: TreemapLayoutAlgorithm.dice,
-            ),
-          },
-          resolver: (context) => context.children.length > 4
-              ? const TreemapLayoutRule(
-                  algorithm: TreemapLayoutAlgorithm.squarified,
-                )
-              : null,
-        ),
-      ),
-    ),
-  ),
-  ExampleScenario(
-    id: 'layout-sort-policies',
-    title: 'Stable ascending sort',
-    category: 'Layout policy',
-    description:
-        'Orders siblings by ascending weight while retaining source order for ties. In Consumer the visible order is Desktop 15, Web 30, Mobile 55; Business is Enterprise 18, Medium 24, Small 38.',
-    builder: (_) => _layoutChart(
-      TreemapLayoutConfig(
-        policy: TreemapLayoutPolicy(
-          rootRule: const TreemapLayoutRule(sort: TreemapSortPolicy.ascending),
-        ),
-      ),
-    ),
-  ),
-  ExampleScenario(
-    id: 'layout-four-origins',
-    title: 'Four origins',
-    category: 'Layout policy',
-    description:
-        'Renders the same six weighted leaves in a 2 × 2 grid using top-left, top-right, bottom-left, and bottom-right origins. Top-row labels sit before their charts and bottom-row labels after them, keeping every title outside painted geometry. $sampleHierarchyDescription',
-    builder: (_) => Column(
-      children: [
-        for (var row = 0; row < 2; row++)
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var column = 0; column < 2; column++)
-                  Expanded(
-                    child: _OriginCard(
-                      direction:
-                          TreemapLayoutDirection.values[row * 2 + column],
-                      captionAbove: row == 0,
-                    ),
-                  ),
-              ],
-            ),
-          ),
+        "Depth 2 uses dice; Business uses binary layout; the resolver overrides Consumer. Change the rule rows to compare.",
+    dataKey: "markets",
+    overrides: {
+      "layout.rules": [
+        {"target": "depth", "key": "2", "algorithm": "dice"},
+        {"target": "parent", "key": "business", "algorithm": "binaryByWeight"},
       ],
-    ),
+      "layout.resolver": "consumerDice",
+    },
   ),
-  ExampleScenario(
-    id: 'layout-axis-orders',
-    title: 'Primary-axis orders',
-    category: 'Layout policy',
+  ExamplePreset(
+    id: "layout-sort-policies",
+    title: "Stable ascending sort",
+    category: "Layout",
     description:
-        'Compares horizontal-first and vertical-first binary-by-weight splitting in square viewports over the same 180 total weight. Binary layout normally splits the longer side; equal width and height make axisOrder choose whether Consumer 100 and Business 80 begin as columns or rows. $sampleHierarchyDescription',
-    builder: (_) => Row(
-      children: [
-        for (final axis in TreemapAxisOrder.values)
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Column(
-                children: [
-                  _ChartCaption(axis.name),
-                  Expanded(
-                    child: Center(
-                      child: AspectRatio(
-                        aspectRatio: 1,
-                        child: _layoutChart(
-                          TreemapLayoutConfig(
-                            policy: TreemapLayoutPolicy(
-                              rootRule: TreemapLayoutRule(
-                                algorithm:
-                                    TreemapLayoutAlgorithm.binaryByWeight,
-                                axisOrder: axis,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
-    ),
+        "Smallest weights appear first. Compare source, descending and custom label order.",
+    dataKey: "markets",
+    overrides: {"layout.sort": "ascending"},
   ),
-  ExampleScenario(
-    id: 'layout-minimum-aggregation',
-    title: 'Minimum size and Other',
-    category: 'Responsive layout',
+  ExamplePreset(
+    id: "layout-four-origins",
+    title: "Four origins",
+    category: "Layout",
     description:
-        'Lays out 40 leaves whose weights cycle from 1 through 11. Tiles below the explicit 70 × 32 layout minimum are combined into a generated Other node; labels include the active locale code and aggregate weight.',
-    builder: (_) => TreemapChart<String>(
-      root: manyNodeTree(),
-      tiles: sampleTiles(colorScale: manyNodeColorScale()),
-      labels: sampleLabels(
-        colorScale: manyNodeColorScale(),
-        config: TreemapLabelConfig(
-          localizedValueFormatter: (details, locale) =>
-              '${locale.languageCode}: ${details.weight}',
-        ),
-      ),
-      layout: TreemapLayoutConfig(
-        minimumWidth: 70,
-        minimumHeight: 32,
-        minimumNodePolicy: TreemapMinimumNodePolicy.aggregate,
-        insufficientSpacePolicy: TreemapInsufficientSpacePolicy.show,
-      ),
-    ),
+        "Four charts share all settings and vary only their starting corner.",
+    dataKey: "markets",
+    overrides: {"preview.mode": "originsComparison", "animation.enabled": true},
   ),
-  ExampleScenario(
-    id: 'layout-custom-strategy',
-    title: 'Custom strategy',
-    category: 'Extension points',
+  ExamplePreset(
+    id: "layout-axis-orders",
+    title: "Primary-axis orders",
+    category: "Layout",
     description:
-        'Implements ITreemapLayoutStrategy directly: each parent divides its bounds into equal-width columns by child count, independent of weight. Compare those columns against Mobile 55, Web 30, Desktop 15 and the Business values 38, 24, 18.',
-    builder: (_) => _layoutChart(
-      TreemapLayoutConfig(
-        policy: TreemapLayoutPolicy(
-          rootRule: TreemapLayoutRule(strategy: ExampleEqualColumnsStrategy()),
-        ),
-      ),
-    ),
+        "Two square binary layouts vary only their preferred flow axis.",
+    dataKey: "markets",
+    overrides: {
+      "preview.mode": "axesComparison",
+      "layout.algorithm": "binaryByWeight",
+    },
   ),
-  ExampleScenario(
-    id: 'layout-category-card',
-    title: 'Category card: visible depth and drill-down',
-    category: 'Layout policy',
+  ExamplePreset(
+    id: "layout-minimum-aggregation",
+    title: "Minimum size and Other",
+    category: "Layout",
     description:
-        'A 440 px category card with 20 merchants and a Visible depth control above the chart, initially All (null). With Level 1 grouping, Depth 1 shows Expenses 19 and Unassigned 1; Depth 2 shows Food 6, Transport 5, and Other expenses 8 inside Expenses. Click Expenses, then Food at Depth 1 to reveal each next level; the limit restarts from the zoom focus, and Back returns to its parent. Changing depth preserves focus. The Level 1, Level 2, and Flat tabs below the chart change the supplied hierarchy and reset focus while preserving the depth setting. The full input hierarchy and derived totals remain listed below. Tiles use text/count labels, 10 px corners, 2 px gutters, and 8 px nested/label padding.',
-    builder: (_) => const CategoryCardExample(),
+        "Small generated leaves become Other below the 70-pixel minimum. Activate Other to reveal its members.",
+    dataKey: "many-nodes",
+    overrides: {
+      "layout.minimumWidth": 70,
+      "layout.minimumHeight": 24,
+      "layout.minimumNodePolicy": "aggregate",
+      "breadcrumbs.enabled": true,
+      "color.scale": "interpolated",
+      "color.input": "source",
+      "color.minimum": 0,
+      "color.maximum": 39,
+    },
+  ),
+  ExamplePreset(
+    id: "layout-custom-strategy",
+    title: "Custom strategy",
+    category: "Layout",
+    description:
+        "A registered custom strategy gives every sibling an equal-width column.",
+    dataKey: "markets",
+    overrides: {"layout.strategy": "equalColumns"},
+  ),
+  ExamplePreset(
+    id: "layout-category-card",
+    title: "Category card: visible depth and drill-down",
+    category: "Layout",
+    description:
+        "Expenses totals 19 and Food totals 6. Change visible depth and grouping, then drill into branches.",
+    dataKey: "categories",
+    overrides: {
+      "preview.mode": "categoryCard",
+      "labels.renderer": "widgets",
+      "labels.widgetBuilder": "category",
+      "color.scale": "interpolated",
+      "color.input": "weight",
+      "color.minimum": 1,
+      "color.maximum": 19,
+      "color.palette": const [Color(0xFFE7EDFF), Color(0xFF587EFF)],
+      "tiles.normal.radius": 10,
+      "layout.innerSpacing": 2,
+      "layout.levelPadding.left": 8,
+      "layout.levelPadding.top": 8,
+      "layout.levelPadding.right": 8,
+      "layout.levelPadding.bottom": 8,
+      "tooltip.enabled": true,
+      "semantics.enabled": true,
+      "interaction.tapCallback": "holdLeaf",
+      "preview.showHierarchy": true,
+    },
   ),
 ];
-
-class _ChartCaption extends StatelessWidget {
-  const _ChartCaption(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-    child: Text(text, style: Theme.of(context).textTheme.labelLarge),
-  );
-}
-
-class _OriginCard extends StatelessWidget {
-  const _OriginCard({required this.direction, required this.captionAbove});
-
-  final TreemapLayoutDirection direction;
-  final bool captionAbove;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    clipBehavior: Clip.antiAlias,
-    child: Column(
-      children: [
-        if (captionAbove) _ChartCaption(direction.name),
-        Expanded(
-          child: _layoutChart(
-            TreemapLayoutConfig(
-              policy: TreemapLayoutPolicy(
-                rootRule: TreemapLayoutRule(direction: direction),
-              ),
-            ),
-          ),
-        ),
-        if (!captionAbove) _ChartCaption(direction.name),
-      ],
-    ),
-  );
-}

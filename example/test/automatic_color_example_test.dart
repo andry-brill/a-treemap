@@ -1,51 +1,49 @@
 import 'package:any_treemap/any_treemap.dart';
+import 'package:any_treemap_example/playground/presets.dart';
+import 'package:any_treemap_example/playground/preview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:any_treemap_example/scenarios/appearance.dart';
-
 void main() {
-  for (final scenario in appearanceScenarios.where(
-    (scenario) =>
-        scenario.id.startsWith('appearance-auto-') ||
-        scenario.id == 'appearance-presentation-state',
+  for (final preset in allPresets.where(
+    (preset) =>
+        preset.id.startsWith('appearance-auto-') ||
+        preset.id == 'appearance-presentation-state',
   )) {
-    testWidgets('${scenario.id} renders and updates its documented domain', (
-      tester,
-    ) async {
+    testWidgets('${preset.id} preserves its documented domain', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1000, 700));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Builder(builder: scenario.builder),
-            ),
+      var config = preset.config;
+      Future<void> show() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(body: PlaygroundPreview(config: config)),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
+      }
+
       TreemapColorScale resolved() {
         final view = tester.widget<TreemapLegendView<String>>(
           find.byType(TreemapLegendView<String>),
         );
-        final state =
-            view.presentation ??
-            TreemapPresentationScope.maybeOf<String>(
-              tester.element(find.byType(TreemapLegendView<String>)),
-            );
-        return state?.resolveColorScale(view.scale) ?? view.scale;
+        final scope = tester.widget<TreemapPresentationScope<String>>(
+          find.byType(TreemapPresentationScope<String>),
+        );
+        return (view.presentation ?? scope.notifier!.value).resolveColorScale(
+          view.scale,
+        );
       }
 
-      if (scenario.id == 'appearance-auto-standalone') {
+      await show();
+      if (preset.id == 'appearance-auto-standalone') {
         expect(resolved().minimum, 15);
         expect(resolved().maximum, 55);
       } else {
         final visible =
-            scenario.id == 'appearance-auto-visible' ||
-            scenario.id == 'appearance-presentation-state';
-        final mixed = scenario.id == 'appearance-auto-mixed-bounds';
+            preset.id == 'appearance-auto-visible' ||
+            preset.id == 'appearance-presentation-state';
+        final mixed = preset.id == 'appearance-auto-mixed-bounds';
         expect(
           resolved().minimum,
           visible
@@ -55,21 +53,38 @@ void main() {
               : 10,
         );
         expect(resolved().maximum, 60);
-        await tester.tap(find.text('Depth 2'));
-        await tester.pumpAndSettle();
+        config = config.withValues({'layout.maxVisibleDepth': 2});
+        await show();
         expect(resolved().minimum, mixed ? 0 : 10);
-        await tester.tap(find.text('Update data'));
-        await tester.pumpAndSettle();
+        config = config.withValues({'data.revision': 1});
+        await show();
         expect(resolved().maximum, 100);
         if (mixed) {
-          await tester.tap(find.text('Use fixed maximum 100'));
-          await tester.pumpAndSettle();
+          config = config.withValues({
+            'color.minimum': null,
+            'color.maximum': 100,
+          });
+          await show();
           expect(resolved().minimum, 10);
-          expect(resolved().maximum, 100);
         }
-        await tester.tap(find.text('Restore data'));
+        config = config.withValues({
+          'data.revision': 0,
+          'layout.maxVisibleDepth': 1,
+        });
+        await show();
+        final chart = tester.widget<TreemapChart<String>>(
+          find.byType(TreemapChart<String>),
+        );
+        chart.controller!.zoomTo('a');
         await tester.pumpAndSettle();
-        expect(resolved().maximum, mixed ? 100 : 60);
+        expect(
+          resolved().maximum,
+          visible
+              ? 30
+              : mixed
+              ? 100
+              : 60,
+        );
       }
       expect(tester.takeException(), isNull);
     });

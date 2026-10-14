@@ -2,10 +2,9 @@ import 'package:any_treemap/any_treemap.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// ignore: avoid_relative_lib_imports
-import '../example/lib/main.dart';
-// ignore: avoid_relative_lib_imports
-import '../example/lib/sample_data.dart';
+import 'package:any_treemap_example/playground/presets.dart';
+import 'package:any_treemap_example/playground/preview.dart';
+import 'support/sample.dart';
 
 Future<void> _pumpScenario(
   WidgetTester tester,
@@ -14,14 +13,14 @@ Future<void> _pumpScenario(
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  final scenario = allScenarios.singleWhere((item) => item.id == id);
+  final scenario = allPresets.singleWhere((item) => item.id == id);
   await tester.pumpWidget(
     MaterialApp(
       theme: ThemeData(colorSchemeSeed: Colors.indigo, useMaterial3: true),
       home: Scaffold(
         body: RepaintBoundary(
           key: const ValueKey('layout-example'),
-          child: Builder(builder: scenario.builder),
+          child: PlaygroundPreview(config: scenario.config, showToolbar: false),
         ),
       ),
     ),
@@ -76,11 +75,7 @@ void main() {
       final chartRect = tester.getRect(
         find.byWidget(chartElements[entry.$1].widget),
       );
-      if (entry.$1 < 2) {
-        expect(labelRect.bottom, lessThanOrEqualTo(chartRect.top));
-      } else {
-        expect(labelRect.top, greaterThanOrEqualTo(chartRect.bottom));
-      }
+      expect(labelRect.bottom, lessThanOrEqualTo(chartRect.top));
       expect(labelRect.overlaps(chartRect), isFalse);
     }
   });

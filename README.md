@@ -24,6 +24,23 @@ Import the single public library:
 import 'package:any_treemap/any_treemap.dart';
 ```
 
+## Example playground
+
+Run the shared playground from `example`:
+
+```console
+flutter pub get
+flutter run -d chrome
+```
+
+The **Example** chooser loads one of 50 named presets. **Data** selects a shared dataset, and the property panel controls layout, colors, visual layers, interaction, accessibility, animation, and preview dimensions. Property info buttons explain each setting. On narrow screens, open **Properties** from the toolbar.
+
+Preset links contain only an example key, such as `?example=appearance-auto-visible`. Editing any property switches to **Custom** and puts the complete configuration, including `data`, in the URL. **Copy link** includes valid pending edits. Browser Back/Forward restores committed changes; navigation, current selection, hover, and tooltips remain temporary.
+
+Automatic bounds appear as **Auto** and serialize as `auto`; the chart translates them to the library's infinity defaults. Custom builders and strategies are registered choices. Comparisons, category/opacity compositions, standalone legends, validation, and isolate execution use the same configuration model.
+
+See [the playground guide](example/README.md) for URL behavior and extension points, and [the feature matrix](example/FEATURES.md) for preset coverage.
+
 ## Quick start
 
 A chart always needs a hierarchy and a tile layer. Colors are explicit: the package does not silently choose a palette or fallback color.

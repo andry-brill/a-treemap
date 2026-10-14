@@ -19,6 +19,12 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+      - run: flutter pub get
+        working-directory: example
+      - run: flutter analyze
+        working-directory: example
+      - run: flutter test
+        working-directory: example
       - run: dart run benchmark/layout_benchmark.dart --verify
         if: runner.os == 'Linux'
       - run: flutter build web

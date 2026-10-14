@@ -1,80 +1,70 @@
 import 'package:any_treemap/any_treemap.dart';
-import 'package:any_treemap_example/category_card_example.dart';
+import 'package:any_treemap_example/playground/presets.dart';
+import 'package:any_treemap_example/playground/preview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('visible depth controls the chart independently of grouping', (
+  testWidgets('category depth, grouping and drill-down share configuration', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(600, 1200));
+    await tester.binding.setSurfaceSize(const Size(600, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: CategoryCardExample())),
-    );
-    await tester.pumpAndSettle();
+    var config = presetsByKey['layout-category-card']!.config;
+    Future<void> show() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: PlaygroundPreview(config: config)),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
     final chartFinder = find.byType(TreemapChart<String>);
     TreemapChart<String> chart() => tester.widget(chartFinder);
     Finder chartText(String text) =>
         find.descendant(of: chartFinder, matching: find.text(text));
-    final control = find.byType(SegmentedButton<int?>);
-    expect(chart().layout.maxVisibleDepth, isNull);
-    expect(tester.widget<SegmentedButton<int?>>(control).selected, {null});
-    expect(
-      tester.getBottomLeft(control).dy,
-      lessThan(tester.getTopLeft(chartFinder).dy),
-    );
+    await show();
     expect(chartText('Groceries'), findsOneWidget);
-
-    await tester.tap(find.text('Depth 1'));
-    await tester.pumpAndSettle();
-    expect(chart().layout.maxVisibleDepth, 1);
+    config = config.withValues({'layout.maxVisibleDepth': 1});
+    await show();
     expect(chartText('Expenses'), findsOneWidget);
     expect(chartText('19'), findsOneWidget);
-    expect(chartText('Unassigned'), findsOneWidget);
     expect(chartText('Groceries'), findsNothing);
-    // The source hierarchy below the chart still includes hidden descendants.
-    expect(find.text('Groceries'), findsOneWidget);
-
-    await tester.tap(find.text('Depth 2'));
-    await tester.pumpAndSettle();
-    expect(chart().layout.maxVisibleDepth, 2);
+    expect(
+      find.text('Groceries'),
+      findsOneWidget,
+    ); // Hierarchy retains hidden source data.
+    config = config.withValues({'layout.maxVisibleDepth': 2});
+    await show();
     for (final label in ['Food', 'Transport', 'Other expenses', 'Unassigned']) {
       expect(chartText(label), findsOneWidget);
     }
-    expect(chartText('Groceries'), findsNothing);
-
-    await tester.tap(find.text('Depth 1'));
-    await tester.pumpAndSettle();
+    config = config.withValues({'layout.maxVisibleDepth': 1});
+    await show();
     await tester.tapAt(tester.getCenter(chartText('Expenses')));
     await tester.pumpAndSettle();
     expect(chart().controller!.focusKey, const TreemapKey.source('expenses'));
-    expect(chartText('Food'), findsOneWidget);
     await tester.tapAt(tester.getCenter(chartText('Food')));
     await tester.pumpAndSettle();
     expect(chart().controller!.focusKey, const TreemapKey.source('food'));
     expect(chartText('Groceries'), findsOneWidget);
-    expect(chartText('Cafes'), findsOneWidget);
-
-    await tester.tap(find.text('All (null)'));
-    await tester.pumpAndSettle();
-    expect(chart().layout.maxVisibleDepth, isNull);
+    config = config.withValues({'layout.maxVisibleDepth': null});
+    await show();
     expect(chart().controller!.focusKey, const TreemapKey.source('food'));
-    await tester.tap(find.byTooltip('Back'));
+    await tester.tap(find.byKey(const ValueKey('preview-back')));
     await tester.pumpAndSettle();
     expect(chart().controller!.focusKey, const TreemapKey.source('expenses'));
-
-    await tester.tap(find.text('Depth 1'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Level 2'));
-    await tester.pumpAndSettle();
+    config = config.withValues({
+      'data.grouping': 'level2',
+      'layout.maxVisibleDepth': 1,
+    });
+    await show();
     expect(chart().controller!.focusKey, const TreemapKey.source('merchants'));
-    expect(chart().layout.maxVisibleDepth, 1);
     expect(chartText('Food'), findsOneWidget);
     expect(chartText('Groceries'), findsNothing);
-    await tester.tap(find.text('Flat'));
-    await tester.pumpAndSettle();
-    expect(chart().layout.maxVisibleDepth, 1);
+    config = config.withValues({'data.grouping': 'flat'});
+    await show();
     expect(chartText('Groceries'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

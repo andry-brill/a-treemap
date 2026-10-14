@@ -220,24 +220,32 @@ void main() {
   testWidgets('default builders compose configurable standard widgets', (
     tester,
   ) async {
-    final controller = TreemapController<String>();
-    controller
-      ..synchronize(
-        TreemapNode(
-          key: 'root',
-          label: 'Root',
-          children: [
-            TreemapNode(
-              key: 'group',
-              label: 'Group',
-              children: [TreemapNode(key: 'leaf', weight: 1)],
-            ),
-          ],
-        ),
-      )
-      ..zoomTo('group')
-      ..setHovered(const TreemapKey.source('leaf'), color: 1);
+    final tree = TreemapNormalizer.normalize(
+      TreemapNode<String>(
+        key: 'root',
+        label: 'Root',
+        children: [
+          TreemapNode(
+            key: 'group',
+            label: 'Group',
+            children: [TreemapNode(key: 'leaf', weight: 1)],
+          ),
+        ],
+      ),
+    );
+    final controller = TreemapController<String>()
+      ..synchronize(tree)
+      ..zoomTo('group');
     addTearDown(controller.dispose);
+    final presentation = TreemapPresentationState.fromData(
+      tree: tree,
+      targetSnapshot: TreemapLayoutEngine<String>().layout(
+        tree: tree,
+        viewport: const TreemapBounds.fromLTWH(0, 0, 300, 200),
+        focus: controller.layoutFocus,
+      ),
+      hoveredKey: const TreemapKey.source('leaf'),
+    );
     final scale = TreemapColorScale.interpolated(
       minimum: 0,
       maximum: 2,
@@ -248,7 +256,7 @@ void main() {
     await tester.pumpTreemapApp(
       Column(
         children: [
-          TreemapBreadcrumbsView<String>(controller: controller),
+          TreemapBreadcrumbsView<String>(presentation: presentation),
           TreemapLegendView<String>(
             scale: TreemapColorScale.exact(const {
               1: Colors.blue,
@@ -257,7 +265,7 @@ void main() {
           ),
           TreemapLegendView<String>(
             scale: scale,
-            controller: controller,
+            presentation: presentation,
             config: const TreemapLegendConfig.bar(showLabels: false),
           ),
           SizedBox(
@@ -292,24 +300,32 @@ void main() {
   testWidgets('overlay builders replace complete visual widgets', (
     tester,
   ) async {
-    final controller = TreemapController<String>();
-    controller
-      ..synchronize(
-        TreemapNode(
-          key: 'root',
-          label: 'Root',
-          children: [
-            TreemapNode(
-              key: 'group',
-              label: 'Group',
-              children: [TreemapNode(key: 'leaf', weight: 1)],
-            ),
-          ],
-        ),
-      )
-      ..zoomTo('group')
-      ..setHovered(const TreemapKey.source('node-0'), color: 1);
+    final tree = TreemapNormalizer.normalize(
+      TreemapNode<String>(
+        key: 'root',
+        label: 'Root',
+        children: [
+          TreemapNode(
+            key: 'group',
+            label: 'Group',
+            children: [TreemapNode(key: 'leaf', weight: 1)],
+          ),
+        ],
+      ),
+    );
+    final controller = TreemapController<String>()
+      ..synchronize(tree)
+      ..zoomTo('group');
     addTearDown(controller.dispose);
+    final presentation = TreemapPresentationState.fromData(
+      tree: tree,
+      targetSnapshot: TreemapLayoutEngine<String>().layout(
+        tree: tree,
+        viewport: const TreemapBounds.fromLTWH(0, 0, 300, 200),
+        focus: controller.layoutFocus,
+      ),
+      hoveredKey: const TreemapKey.source('leaf'),
+    );
     final scale = TreemapColorScale.interpolated(
       minimum: 0,
       maximum: 2,
@@ -321,7 +337,7 @@ void main() {
       Column(
         children: [
           TreemapBreadcrumbsView<String>(
-            controller: controller,
+            presentation: presentation,
             config: const TreemapBreadcrumbsConfig(
               itemBuilder: _testBreadcrumbItem,
               separatorBuilder: _testBreadcrumbSeparator,
@@ -345,7 +361,7 @@ void main() {
           ),
           TreemapLegendView<String>(
             scale: scale,
-            controller: controller,
+            presentation: presentation,
             config: const TreemapLegendConfig.bar(
               title: 'Scale',
               titleBuilder: _testLegendTitle,
@@ -423,7 +439,7 @@ void main() {
             width: 300,
             height: 200,
             child: TreemapChart<String>(
-              root: _manyNodes(3),
+              tree: TreemapNormalizer.normalize(_manyNodes(3)),
               tiles: testTreemapTiles(),
               labels: testTreemapLabels(),
             ),
@@ -445,7 +461,7 @@ void main() {
             width: 300,
             height: 200,
             child: TreemapChart<String>(
-              root: _manyNodes(3),
+              tree: TreemapNormalizer.normalize(_manyNodes(3)),
               tiles: testTreemapTiles(),
               labels: testTreemapLabels(
                 config: TreemapLabelConfig(
@@ -528,7 +544,7 @@ void main() {
         width: 500,
         height: 300,
         child: TreemapChart<String>(
-          root: _manyNodes(20),
+          tree: TreemapNormalizer.normalize(_manyNodes(20)),
           tiles: testTreemapTiles(),
           labels: TreemapWidgetLabels(
             maximumNodes: 3,
@@ -566,7 +582,7 @@ void main() {
         width: 180,
         height: 80,
         child: TreemapChart<String>(
-          root: _manyNodes(12),
+          tree: TreemapNormalizer.normalize(_manyNodes(12)),
           tiles: testTreemapTiles(),
           layout: TreemapLayoutConfig(
             minimumNodePolicy: TreemapMinimumNodePolicy.aggregate,
@@ -578,7 +594,8 @@ void main() {
                   '${locale.languageCode}:${details.weight}',
             ),
           ),
-          onSnapshot: (value) => snapshot = value,
+          onPresentationChanged: (presentation) =>
+              snapshot = presentation.targetSnapshot!,
         ),
       ),
       locale: const Locale('de'),
@@ -604,7 +621,7 @@ void main() {
           width: 720,
           height: 320,
           child: TreemapChart<String>(
-            root: _manyNodes(5),
+            tree: TreemapNormalizer.normalize(_manyNodes(5)),
             tiles: testTreemapTiles(colorScale: scale),
             labels: testTreemapLabels(colorScale: scale),
             surrounding: TreemapBreadcrumbs(
@@ -621,7 +638,7 @@ void main() {
           width: 720,
           height: 320,
           child: TreemapChart<String>(
-            root: _manyNodes(5),
+            tree: TreemapNormalizer.normalize(_manyNodes(5)),
             tiles: testTreemapTiles(colorScale: scale),
             labels: testTreemapLabels(colorScale: scale),
             surrounding: TreemapLegend(

@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../controller.dart';
-import '../presentation/context.dart';
+import '../presentation/state.dart';
 import 'color_scale.dart';
 import 'style.dart';
 

@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../controller.dart';
 import '../presentation/context.dart';
+import '../presentation/state.dart';
 
 /// Builds positioned accessibility nodes without adding visible canvas output.
 ///
@@ -29,7 +30,7 @@ final class TreemapSemanticsPainter<K> extends CustomPainter {
   @override
   SemanticsBuilderCallback get semanticsBuilder =>
       (Size size) => [
-        for (final node in visual.snapshot.visibleNodes)
+        for (final node in visual.presentation.displayedSnapshot!.visibleNodes)
           CustomPainterSemantics(
             rect: Rect.fromLTWH(
               node.bounds.left,
@@ -37,7 +38,7 @@ final class TreemapSemanticsPainter<K> extends CustomPainter {
               node.bounds.width,
               node.bounds.height,
             ),
-            properties: _properties(visual.details[node.key]!),
+            properties: _properties(visual.presentation.details[node.key]!),
           ),
       ];
 
@@ -57,17 +58,19 @@ final class TreemapSemanticsPainter<K> extends CustomPainter {
               ? 'Level ${details.depth + 1}. Activate to drill down.'
               : 'Level ${details.depth + 1}.'),
       button: true,
-      selected: visual.selection.contains(details.key),
-      focused: visual
+      selected: visual.presentation.selectedEntries.contains(details.key),
+      focused: visual.presentation
           .statesFor(details.key)
           .contains(TreemapVisualState.focused),
       headingLevel: details.hasChildren
           ? (details.depth + 1).clamp(1, 6)
           : null,
       expanded: details.hasChildren ? false : null,
-      onTap: () => visual.onActivate(details),
-      onFocus: () => visual.onFocus(details),
-      onExpand: details.hasChildren ? () => visual.onActivate(details) : null,
+      onTap: () => visual.actions.activate(details.key),
+      onFocus: () => visual.actions.focus(details.key),
+      onExpand: details.hasChildren
+          ? () => visual.actions.activate(details.key)
+          : null,
     );
   }
 
@@ -78,10 +81,14 @@ final class TreemapSemanticsPainter<K> extends CustomPainter {
   bool shouldRebuildSemantics(
     covariant TreemapSemanticsPainter<K> oldDelegate,
   ) =>
-      visual.snapshot.nodes != oldDelegate.visual.snapshot.nodes ||
-      visual.details != oldDelegate.visual.details ||
-      !setEquals(visual.selection, oldDelegate.visual.selection) ||
-      visual.states != oldDelegate.visual.states ||
+      visual.presentation.displayedSnapshot!.nodes !=
+          oldDelegate.visual.presentation.displayedSnapshot!.nodes ||
+      visual.presentation.details != oldDelegate.visual.presentation.details ||
+      !setEquals(
+        visual.presentation.selectedEntries,
+        oldDelegate.visual.presentation.selectedEntries,
+      ) ||
+      visual.presentation.states != oldDelegate.visual.presentation.states ||
       labelResolver != oldDelegate.labelResolver ||
       valueResolver != oldDelegate.valueResolver ||
       hintResolver != oldDelegate.hintResolver;

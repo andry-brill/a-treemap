@@ -123,8 +123,8 @@ void main() {
     final chart = tester.widget<TreemapChart<String>>(chartFinder);
     final chartSize = tester.getSize(chartFinder);
     expect(chartSize, const Size.square(600));
-    expect(chart.root.children, hasLength(2));
-    for (final group in chart.root.children) {
+    expect(chart.tree.root.children, hasLength(2));
+    for (final group in chart.tree.root.children) {
       expect(group.children, hasLength(16));
       expect(group.color, Colors.transparent);
       expect(group.children.map((node) => node.color).toSet(), hasLength(8));
@@ -141,7 +141,7 @@ void main() {
     expect(chart.layout.minimumHeight, 24);
 
     final snapshot = TreemapLayoutEngine<String>().layout(
-      root: chart.root,
+      tree: chart.tree,
       viewport: TreemapBounds.fromLTWH(0, 0, chartSize.width, chartSize.height),
       config: chart.layout,
     );
@@ -183,7 +183,7 @@ void main() {
         TreemapBounds.fromLTWH(0, 0, 1042, 617),
       ])
         TreemapLayoutEngine<String>().layout(
-          root: chart.root,
+          tree: chart.tree,
           viewport: viewport,
           config: chart.layout,
         ),
@@ -306,7 +306,7 @@ void main() {
           child: SizedBox.square(
             dimension: 600,
             child: TreemapChart<String>(
-              root: chart.root,
+              tree: chart.tree,
               tiles: chart.tiles,
               layout: chart.layout,
               clipBehavior: chart.clipBehavior,

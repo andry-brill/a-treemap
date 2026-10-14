@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../appearance/color_scale.dart';
 import '../appearance/legend.dart';
 import '../appearance/overlay.dart';
-import '../controller.dart';
+import '../presentation/context.dart';
 import '../presentation/contracts.dart';
 import '../presentation/state.dart';
 import 'surrounding_grid.dart';
@@ -17,17 +17,21 @@ final class TreemapLegend<K>
   final TreemapLegendConfig config;
 
   @override
-  Widget build(BuildContext context, TreemapController<K> controller) =>
-      TreemapLegendView(scale: scale, config: config, controller: controller);
+  Widget build(BuildContext context, TreemapVisualContext<K> visual) =>
+      TreemapLegendView<K>(
+        scale: scale,
+        config: config,
+        presentation: visual.presentation,
+      );
 
   @override
   Widget wrap(
     BuildContext context,
     Widget treemap,
-    TreemapController<K> controller,
+    TreemapVisualContext<K> visual,
   ) => TreemapSurroundingGrid<K>.fromMap({
     config.position: this,
-  }).wrap(context, treemap, controller);
+  }).wrap(context, treemap, visual);
 }
 
 /// Standalone legend widget for compositions outside a chart.
@@ -36,13 +40,11 @@ class TreemapLegendView<K> extends StatelessWidget {
     super.key,
     required this.scale,
     required this.config,
-    this.controller,
     this.presentation,
   });
 
   final TreemapColorScale scale;
   final TreemapLegendConfig config;
-  final TreemapController<K>? controller;
 
   /// Chart output for a legend outside its presentation scope. Inside a chart,
   /// the nearest scope is used automatically when this argument is absent.
@@ -59,13 +61,7 @@ class TreemapLegendView<K> extends StatelessWidget {
         state.hoveredColor,
       );
     }
-    return controller == null
-        ? _build(context, scale, null)
-        : ListenableBuilder(
-            listenable: controller!,
-            builder: (context, _) =>
-                _build(context, scale, controller!.hoveredColor),
-          );
+    return _build(context, scale, null);
   }
 
   Widget _build(

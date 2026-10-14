@@ -232,9 +232,12 @@ void main() {
 
   test('global and visible scopes use branch totals, depth and focus', () {
     final root = _tree();
-    final controller = TreemapController<String>()..synchronize(root);
+    final controller = TreemapController<String>()
+      ..synchronize(TreemapNormalizer.normalize(root));
     addTearDown(controller.dispose);
-    var presentation = TreemapPresentationState.fromData(root: root);
+    var presentation = TreemapPresentationState.fromData(
+      tree: TreemapNormalizer.normalize(root),
+    );
     final global = _scale();
     final visible = _scale(scope: TreemapColorDomainScope.visible);
     _bounds(presentation.resolveColorScale(global), 10, 60);
@@ -242,9 +245,9 @@ void main() {
     final engine = TreemapLayoutEngine<String>();
     void layout(int? depth) {
       presentation = TreemapPresentationState.fromData(
-        root: root,
+        tree: TreemapNormalizer.normalize(root),
         targetSnapshot: engine.layout(
-          root: root,
+          tree: TreemapNormalizer.normalize(root),
           viewport: const TreemapBounds.fromLTWH(0, 0, 600, 400),
           config: TreemapLayoutConfig(maxVisibleDepth: depth),
           focus: controller.layoutFocus,
@@ -276,7 +279,9 @@ void main() {
           TreemapNode(key: 'nan', weight: 3000, color: double.nan),
         ],
       );
-      final presentation = TreemapPresentationState.fromData(root: root);
+      final presentation = TreemapPresentationState.fromData(
+        tree: TreemapNormalizer.normalize(root),
+      );
       _bounds(presentation.resolveColorScale(_scale()), -10, 20);
     },
   );
@@ -292,13 +297,14 @@ void main() {
           TreemapNode(key: 'small2', weight: 2),
         ],
       );
-      final controller = TreemapController<String>()..synchronize(root);
+      final controller = TreemapController<String>()
+        ..synchronize(TreemapNormalizer.normalize(root));
       addTearDown(controller.dispose);
       final engine = TreemapLayoutEngine<String>();
       final visible = _scale(scope: TreemapColorDomainScope.visible);
       TreemapGeometrySnapshot<String> layout(TreemapMinimumNodePolicy policy) =>
           engine.layout(
-            root: root,
+            tree: TreemapNormalizer.normalize(root),
             viewport: const TreemapBounds.fromLTWH(0, 0, 600, 400),
             config: TreemapLayoutConfig(
               minimumWidth: 20,
@@ -308,27 +314,26 @@ void main() {
             focus: controller.layoutFocus,
           );
       var presentation = TreemapPresentationState.fromData(
-        root: root,
+        tree: TreemapNormalizer.normalize(root),
         targetSnapshot: layout(TreemapMinimumNodePolicy.hide),
       );
       _bounds(presentation.resolveColorScale(visible), 1000, 1000);
       final aggregated = layout(TreemapMinimumNodePolicy.aggregate);
       presentation = TreemapPresentationState.fromData(
-        root: root,
+        tree: TreemapNormalizer.normalize(root),
         targetSnapshot: aggregated,
       );
       _bounds(presentation.resolveColorScale(visible), 3, 1000);
       _bounds(presentation.resolveColorScale(_scale()), 1, 1000);
+      final aggregate = aggregated.visibleNodes.singleWhere(
+        (node) => node.isAggregate,
+      );
       controller.revealAggregate(
-        TreemapNodeDetails(
-          geometry: aggregated.visibleNodes.singleWhere(
-            (node) => node.isAggregate,
-          ),
-          path: aggregated.path,
-        ),
+        aggregate.key,
+        memberKeys: aggregate.aggregateMembers.map((node) => node.key),
       );
       presentation = TreemapPresentationState.fromData(
-        root: root,
+        tree: TreemapNormalizer.normalize(root),
         targetSnapshot: layout(TreemapMinimumNodePolicy.aggregate),
       );
       _bounds(presentation.resolveColorScale(visible), 1, 2);
@@ -339,14 +344,18 @@ void main() {
     'one immutable scale resolves independently in multiple presentations',
     () {
       final scale = _scale();
-      final a = TreemapPresentationState.fromData(root: _tree());
+      final a = TreemapPresentationState.fromData(
+        tree: TreemapNormalizer.normalize(_tree()),
+      );
       final b = TreemapPresentationState.fromData(
-        root: TreemapNode(
-          key: 'root',
-          children: [
-            TreemapNode(key: 'x', weight: 100),
-            TreemapNode(key: 'y', weight: 200),
-          ],
+        tree: TreemapNormalizer.normalize(
+          TreemapNode(
+            key: 'root',
+            children: [
+              TreemapNode(key: 'x', weight: 100),
+              TreemapNode(key: 'y', weight: 200),
+            ],
+          ),
         ),
       );
       _bounds(a.resolveColorScale(scale), 10, 60);

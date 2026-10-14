@@ -218,7 +218,7 @@ final appearanceScenarios = <ExamplePreset>[
     title: "Chart-owned state and external legend",
     category: "Color scales",
     description:
-        "Custom tiles, scoped text and an external legend share chart-owned destination bounds. Change depth or drill into A.",
+        "Custom tiles, scoped text and an external legend share presentation. Focus/Activate buttons send chart actions; change depth or drill into A.",
     dataKey: "color-domain",
     overrides: {
       "color.scale": "interpolated",

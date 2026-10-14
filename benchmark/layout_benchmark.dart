@@ -77,18 +77,26 @@ void main(List<String> arguments) {
   for (final size in [100, 1000, 10000]) {
     final root = _flat(size);
     results.add(
+      _measure(
+        'prepare-$size',
+        size == 10000 ? 5 : 12,
+        (_) => TreemapNormalizer.normalize(root),
+      ),
+    );
+    final tree = TreemapNormalizer.normalize(root);
+    results.add(
       _measure('layout-$size', size == 10000 ? 5 : 12, (_) {
-        TreemapLayoutEngine<int>().layout(root: root, viewport: viewport);
+        TreemapLayoutEngine<int>().layout(tree: tree, viewport: viewport);
       }),
     );
   }
 
-  final resizeRoot = _flat(1000);
+  final resizeTree = TreemapNormalizer.normalize(_flat(1000));
   final resizeEngine = TreemapLayoutEngine<int>();
   results.add(
     _measure('resize-1000', 12, (run) {
       resizeEngine.layout(
-        root: resizeRoot,
+        tree: resizeTree,
         viewport: TreemapBounds.fromLTWH(
           0,
           0,
@@ -99,28 +107,32 @@ void main(List<String> arguments) {
     }),
   );
 
-  final grouped = _grouped(50, 20);
+  final grouped = TreemapNormalizer.normalize(_grouped(50, 20));
   final zoomEngine = TreemapLayoutEngine<int>();
   results.add(
     _measure('zoom-1000', 12, (run) {
       zoomEngine.layout(
-        root: grouped,
+        tree: grouped,
         viewport: viewport,
         focus: TreemapFocus.source(100000 + run % 50),
       );
     }),
   );
 
+  final deepTree = TreemapNormalizer.normalize(_deep(1000));
   results.add(
     _measure('depth-1000', 5, (_) {
-      TreemapLayoutEngine<int>().layout(root: _deep(1000), viewport: viewport);
+      TreemapLayoutEngine<int>().layout(tree: deepTree, viewport: viewport);
     }),
   );
 
   final transitionEngine = TreemapLayoutEngine<int>();
-  final before = transitionEngine.layout(root: _flat(1000), viewport: viewport);
+  final before = transitionEngine.layout(
+    tree: TreemapNormalizer.normalize(_flat(1000)),
+    viewport: viewport,
+  );
   final after = transitionEngine.layout(
-    root: _flat(1000, revision: 1),
+    tree: TreemapNormalizer.normalize(_flat(1000, revision: 1)),
     viewport: viewport,
     previous: before,
   );
@@ -133,6 +145,9 @@ void main(List<String> arguments) {
   );
 
   const p95BudgetsUs = <String, int>{
+    'prepare-100': 50000,
+    'prepare-1000': 250000,
+    'prepare-10000': 2500000,
     'layout-100': 50000,
     'layout-1000': 250000,
     'layout-10000': 2500000,

@@ -24,10 +24,12 @@ export 'src/layers/widget_layers.dart';
 export 'src/layout.dart';
 export 'src/model.dart';
 export 'src/painters/text_layout_cache.dart';
-export 'src/presentation/context.dart';
+export 'src/presentation/actions.dart';
+export 'src/presentation/context.dart'
+    show TreemapVisualContext, TreemapTooltipContext;
 export 'src/presentation/contracts.dart';
 export 'src/presentation/state.dart'
-    show TreemapPresentationState, TreemapPresentationScope;
+    show TreemapPresentationState, TreemapPresentationScope, TreemapVisualState;
 export 'src/presentation/transitions.dart';
 export 'src/widgets/breadcrumb_item.dart';
 export 'src/widgets/breadcrumb_separator.dart';

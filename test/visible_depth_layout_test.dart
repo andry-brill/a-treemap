@@ -45,7 +45,7 @@ void main() {
     for (final depth in [0, -1]) {
       expect(
         () => TreemapLayoutEngine<String>().layout(
-          root: _tree(),
+          tree: TreemapNormalizer.normalize(_tree()),
           viewport: _viewport,
           config: TreemapLayoutConfig(maxVisibleDepth: depth),
         ),
@@ -66,7 +66,7 @@ void main() {
       );
       final engine = TreemapLayoutEngine<String>();
       TreemapGeometrySnapshot<String> run(int? depth) => engine.layout(
-        root: root,
+        tree: TreemapNormalizer.normalize(root),
         viewport: _viewport,
         config: config.copyWith(maxVisibleDepth: depth),
       );
@@ -110,7 +110,7 @@ void main() {
   test('focus restarts depth while rules and paths retain absolute depths', () {
     final visited = <(String, int)>[];
     final snapshot = TreemapLayoutEngine<String>().layout(
-      root: _tree(),
+      tree: TreemapNormalizer.normalize(_tree()),
       viewport: _viewport,
       focus: TreemapFocus.source('expenses'),
       config: TreemapLayoutConfig(
@@ -134,7 +134,7 @@ void main() {
       expect(node.bounds.height, 400);
     }
     final deeper = TreemapLayoutEngine<String>().layout(
-      root: _tree(),
+      tree: TreemapNormalizer.normalize(_tree()),
       viewport: _viewport,
       focus: TreemapFocus.source('food'),
       config: const TreemapLayoutConfig(maxVisibleDepth: 1),
@@ -165,19 +165,21 @@ void main() {
     );
     final engine = TreemapLayoutEngine<String>();
     final snapshot = engine.layout(
-      root: root,
+      tree: TreemapNormalizer.normalize(root),
       viewport: _viewport,
       config: config,
     );
     final aggregate = snapshot.nodes.singleWhere((node) => node.isAggregate);
     expect(aggregate.weight, 3);
-    final controller = TreemapController<String>()..synchronize(root);
+    final controller = TreemapController<String>()
+      ..synchronize(TreemapNormalizer.normalize(root));
     addTearDown(controller.dispose);
     controller.revealAggregate(
-      TreemapNodeDetails(geometry: aggregate, path: snapshot.path),
+      aggregate.key,
+      memberKeys: aggregate.aggregateMembers.map((node) => node.key),
     );
     final revealed = engine.layout(
-      root: root,
+      tree: TreemapNormalizer.normalize(root),
       viewport: _viewport,
       config: config,
       focus: controller.layoutFocus,
@@ -185,7 +187,7 @@ void main() {
     expect(_keys(revealed), unorderedEquals(['small-branch', 'small-leaf']));
     expect(revealed.nodes.every((node) => node.depth == 2), isTrue);
     final deeper = engine.layout(
-      root: root,
+      tree: TreemapNormalizer.normalize(root),
       viewport: _viewport,
       config: config.copyWith(maxVisibleDepth: 2),
       focus: controller.layoutFocus,
@@ -200,13 +202,13 @@ void main() {
     final engine = TreemapLayoutEngine<String>();
     const config = TreemapLayoutConfig<String>(maxVisibleDepth: 1);
     final sync = engine.layout(
-      root: root,
+      tree: TreemapNormalizer.normalize(root),
       viewport: _viewport,
       config: config,
       focus: TreemapFocus.source('expenses'),
     );
     final async = await engine.layoutAsync(
-      root: root,
+      tree: TreemapNormalizer.normalize(root),
       viewport: _viewport,
       config: config,
       focus: TreemapFocus.source('expenses'),

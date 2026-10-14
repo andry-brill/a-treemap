@@ -1,10 +1,10 @@
 import 'package:flutter/widgets.dart';
 
 import '../appearance/overlay.dart';
-import '../controller.dart';
+import '../presentation/context.dart';
 import '../presentation/contracts.dart';
 
-/// Places controller-aware content in directional slots around the treemap.
+/// Places presentation-aware content in directional slots around the treemap.
 ///
 /// Top and bottom rows use three equal-width logical cells and take their
 /// natural content height. The middle row receives the remaining height; its
@@ -69,10 +69,10 @@ final class TreemapSurroundingGrid<K> implements TreemapSurroundingLayer<K> {
   Widget wrap(
     BuildContext context,
     Widget treemap,
-    TreemapController<K> controller,
+    TreemapVisualContext<K> visual,
   ) {
     Widget? build(TreemapSurroundingContent<K>? content) =>
-        content?.build(context, controller);
+        content?.build(context, visual);
 
     final top = _SurroundingOuterRow(
       start: build(topStart),

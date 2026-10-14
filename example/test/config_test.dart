@@ -7,8 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('every existing preset expands and round-trips every property', () {
-    expect(allPresets, hasLength(50));
-    expect(presetsByKey, hasLength(50));
+    expect(allPresets, hasLength(51));
+    expect(presetsByKey, hasLength(51));
     expect(propertiesByKey, hasLength(playgroundProperties.length));
     expect(datasetKeys, unorderedEquals(datasetsByKey.keys));
     for (final preset in allPresets) {

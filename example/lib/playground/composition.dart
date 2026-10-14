@@ -28,11 +28,11 @@ Curve curve(String name) => switch (name) {
 
 /// Materializes every configured property through one chart construction path.
 final class PlaygroundComposition {
-  PlaygroundComposition(this.config, this.root) {
+  PlaygroundComposition(this.config, this.tree) {
     scale = _scale();
     if (config.text('preview.mode') == 'standalone') {
       scale = scale.resolveDomain(
-        sourceLeaves(root).map((node) => node.color ?? node.weight),
+        sourceLeaves(tree.root).map((node) => node.color ?? node.weight),
       );
     }
     appearance = TreemapAppearanceResolver<String>(
@@ -54,7 +54,7 @@ final class PlaygroundComposition {
   }
 
   final PlaygroundConfig config;
-  final TreemapNode<String> root;
+  final TreemapNormalizedTree<String> tree;
   late final TreemapLayoutConfig<String> layout;
   late TreemapColorScale scale;
   late final TreemapAppearanceResolver<String> appearance;
@@ -139,7 +139,7 @@ final class PlaygroundComposition {
         fallback: fallback,
         labelFormatter: formatter,
       ),
-      _ => suggestedScale(root, fallback),
+      _ => suggestedScale(tree, fallback),
     };
   }
 
@@ -241,9 +241,7 @@ final class PlaygroundComposition {
       comparator:
           option('sort') == 'custom' ||
               option('sort') == null && option('comparator') != null
-          ? (a, b) => comparator == 'reverseKey'
-                ? b.key.compareTo(a.key)
-                : (a.label ?? a.key).compareTo(b.label ?? b.key)
+          ? _comparators[comparator]
           : null,
     );
   }
@@ -275,27 +273,7 @@ final class PlaygroundComposition {
           for (final row in rows)
             if (row['target'] == 'parent') row['key'] as String: _rule(row),
         },
-        resolver: resolver == 'none'
-            ? null
-            : (context) => switch (resolver) {
-                'alternateDepth' => TreemapLayoutRule(
-                  algorithm: context.childDepth.isEven
-                      ? TreemapLayoutAlgorithm.dice
-                      : TreemapLayoutAlgorithm.slice,
-                ),
-                'consumerDice' =>
-                  context.parent.key == 'consumer'
-                      ? const TreemapLayoutRule(
-                          algorithm: TreemapLayoutAlgorithm.dice,
-                        )
-                      : null,
-                'responsive' => TreemapLayoutRule(
-                  algorithm: context.bounds.width >= context.bounds.height
-                      ? TreemapLayoutAlgorithm.dice
-                      : TreemapLayoutAlgorithm.slice,
-                ),
-                _ => null,
-              },
+        resolver: _layoutResolvers[resolver],
       ),
       outerPadding: insets('layout.outerPadding'),
       levelPadding: insets('layout.levelPadding'),
@@ -633,19 +611,55 @@ final class PlaygroundComposition {
       add(
         TreemapOverlayPosition.topCenter,
         TreemapSurroundingContent.builder(
-          builder: (context, controller) {
-            final state = TreemapPresentationScope.of<String>(context);
+          builder: (context, visual) {
+            final state = visual.presentation;
             final resolved = state.resolveColorScale(scale);
+            final targets =
+                state.targetSnapshot?.visibleNodes.toList() ??
+                <TreemapGeometryNode<String>>[];
+            targets.sort(
+              (a, b) => a.key.toString().compareTo(b.key.toString()),
+            );
+            TreemapGeometryNode<String>? focusTarget;
+            for (final node in targets) {
+              if (node.hasChildren) {
+                focusTarget = node;
+                break;
+              }
+            }
+            focusTarget ??= targets.isEmpty ? null : targets.first;
+            final focusKey = focusTarget?.key;
             final bounds = resolved.minimum == null
                 ? 'No numeric domain'
                 : 'Domain ${resolved.minimum!.toStringAsFixed(0)}–${resolved.maximum!.toStringAsFixed(0)}';
             return SizedBox(
-              height: 28,
-              child: Center(
-                child: Text(
-                  '$bounds · ${state.targetSnapshot?.visibleNodes.length ?? 0} tiles',
-                  style: const TextStyle(fontSize: 12),
-                ),
+              height: 48,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '$bounds · ${state.targetSnapshot?.visibleNodes.length ?? 0} tiles',
+                      style: const TextStyle(fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Focus a tile',
+                    onPressed: focusKey == null
+                        ? null
+                        : () => visual.actions.focus(focusKey),
+                    icon: const Icon(Icons.center_focus_strong, size: 16),
+                  ),
+                  IconButton(
+                    tooltip: 'Activate focused tile',
+                    onPressed: state.keyboardFocusedKey == null
+                        ? null
+                        : () => visual.actions.activate(
+                            state.keyboardFocusedKey!,
+                          ),
+                    icon: const Icon(Icons.open_in_new, size: 16),
+                  ),
+                ],
               ),
             );
           },
@@ -659,11 +673,11 @@ final class PlaygroundComposition {
           entry.key: entry.value.length == 1
               ? entry.value.single
               : TreemapSurroundingContent.builder(
-                  builder: (context, controller) => Column(
+                  builder: (context, visual) => Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       for (final content in entry.value)
-                        content.build(context, controller),
+                        content.build(context, visual),
                     ],
                   ),
                 ),
@@ -692,7 +706,7 @@ final class PlaygroundComposition {
     final mode = config.text('interaction.tapCallback');
     return TreemapChart(
       key: key,
-      root: root,
+      tree: tree,
       controller: controller,
       layout: layout,
       tiles: tiles,
@@ -842,19 +856,17 @@ final class ConfiguredWidgetTiles implements TreemapTileLayer<String> {
   final bool borderOnly;
   @override
   Widget build(BuildContext context, TreemapVisualContext<String> visual) {
-    final resolved = visual.presentation.resolveColorScale(composition.scale);
+    final appearances = visual.resolveAppearances(
+      context,
+      composition.appearance,
+    );
     return TreemapBuilderTileLayer<String>(
       maximumNodes: composition.config
           .optionalNumber('tiles.maximumNodes')
           ?.toInt(),
       ignorePointer: composition.config.flag('tiles.ignorePointer'),
       builder: (context, details, states) {
-        final appearance = composition.appearance.resolve(
-          context,
-          details,
-          states,
-          resolvedScale: resolved,
-        );
+        final appearance = appearances[details.key]!;
         return Opacity(
           opacity: appearance.opacity,
           child: DecoratedBox(
@@ -881,7 +893,10 @@ final class ConfiguredWidgetLabels implements TreemapLabelLayer<String> {
   @override
   Widget build(BuildContext context, TreemapVisualContext<String> visual) {
     final config = composition.config;
-    final resolved = visual.presentation.resolveColorScale(composition.scale);
+    final appearances = visual.resolveAppearances(
+      context,
+      composition.appearance,
+    );
     return TreemapWidgetLabels<String>(
       maximumNodes: config.optionalNumber('labels.maximumNodes')?.toInt(),
       ignorePointer: config.flag('labels.ignorePointer'),
@@ -891,12 +906,7 @@ final class ConfiguredWidgetLabels implements TreemapLabelLayer<String> {
             details.bounds.height < config.number('labels.minimumHeight')) {
           return const SizedBox.shrink();
         }
-        final appearance = composition.appearance.resolve(
-          context,
-          details,
-          states,
-          resolvedScale: resolved,
-        );
+        final appearance = appearances[details.key]!;
         final color = composition._labelColor(appearance);
         final titleStyle =
             (appearance.titleStyle ?? composition.textStyle('title')).copyWith(
@@ -969,3 +979,23 @@ final class ConfiguredWidgetLabels implements TreemapLabelLayer<String> {
     ).build(context, visual);
   }
 }
+
+final _comparators = <String, TreemapNodeComparator<String>>{
+  'reverseKey': (a, b) => b.key.compareTo(a.key),
+  'label': (a, b) => (a.label ?? a.key).compareTo(b.label ?? b.key),
+};
+final _layoutResolvers = <String, TreemapLayoutRuleResolver<String>>{
+  'alternateDepth': (context) => TreemapLayoutRule(
+    algorithm: context.childDepth.isEven
+        ? TreemapLayoutAlgorithm.dice
+        : TreemapLayoutAlgorithm.slice,
+  ),
+  'consumerDice': (context) => context.parent.key == 'consumer'
+      ? const TreemapLayoutRule(algorithm: TreemapLayoutAlgorithm.dice)
+      : null,
+  'responsive': (context) => TreemapLayoutRule(
+    algorithm: context.bounds.width >= context.bounds.height
+        ? TreemapLayoutAlgorithm.dice
+        : TreemapLayoutAlgorithm.slice,
+  ),
+};

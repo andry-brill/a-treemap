@@ -19,7 +19,7 @@ void main() {
                 .withValues({'data.count': 120}),
             layoutRunner: (root, viewport, config) =>
                 execution = TreemapLayoutEngine<String>().layoutAsync(
-                  root: root,
+                  tree: root,
                   viewport: viewport,
                   config: config,
                   fallbackToSynchronous: false,
@@ -54,7 +54,7 @@ void main() {
           config: config,
           layoutRunner: (root, viewport, layout) {
             result = TreemapLayoutEngine<String>().layout(
-              root: root,
+              tree: root,
               viewport: viewport,
               config: layout,
             );

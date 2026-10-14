@@ -1,84 +1,88 @@
+import 'dart:collection';
+
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../appearance/resolver.dart';
+import '../appearance/style.dart';
 import '../controller.dart';
-import '../geometry.dart';
 import '../model.dart';
+import 'actions.dart';
 import 'state.dart';
 
-/// Identifies transient or persistent state available to visual resolvers.
-enum TreemapVisualState {
-  /// The pointer currently targets the node.
-  hovered,
-
-  /// The node belongs to the active selection.
-  selected,
-
-  /// The node is the current keyboard-navigation target.
-  focused,
-
-  /// Interaction is disabled for the chart.
-  disabled,
-}
-
-/// Immutable state supplied to replaceable visual layers.
+/// Read-only output, commands and environment supplied to every visual layer.
+/// Frame rendering resources are separate from the published immutable state.
 final class TreemapVisualContext<K> {
   TreemapVisualContext({
-    required this.snapshot,
     required this.presentation,
-    required Map<TreemapKey<K>, TreemapNodeDetails<K>> details,
-    required Map<TreemapKey<K>, Set<TreemapVisualState>> states,
-    required this.controller,
-    required Set<TreemapKey<K>> selection,
+    required this.actions,
     required this.textDirection,
     required this.textScaler,
-    required this.isAnimating,
-    required this.onActivate,
-    required this.onFocus,
-  }) : details = Map.unmodifiable(details),
-       states = Map.unmodifiable({
-         for (final entry in states.entries)
-           entry.key: Set<TreemapVisualState>.unmodifiable(entry.value),
-       }),
-       selection = Set.unmodifiable(selection);
+  });
 
-  final TreemapGeometrySnapshot<K> snapshot;
-
-  /// Chart-owned destination, displayed frame and resolved color domains.
   final TreemapPresentationState<K> presentation;
-  final Map<TreemapKey<K>, TreemapNodeDetails<K>> details;
-  final Map<TreemapKey<K>, Set<TreemapVisualState>> states;
-  final TreemapController<K> controller;
-  final Set<TreemapKey<K>> selection;
+  final TreemapActions<K> actions;
   final TextDirection textDirection;
   final TextScaler textScaler;
-  final bool isAnimating;
-  final ValueChanged<TreemapNodeDetails<K>> onActivate;
-  final ValueChanged<TreemapNodeDetails<K>> onFocus;
+  final _resources = _TreemapFrameResources<K>();
 
-  Set<TreemapVisualState> statesFor(TreemapKey<K> key) =>
-      states[key] ?? const {};
+  /// Shares appearance results between layers using the same resolver.
+  Map<TreemapKey<K>, TreemapAppearance> resolveAppearances(
+    BuildContext context,
+    TreemapAppearanceResolver<K> resolver,
+  ) => _resources.resolve(context, presentation, resolver);
+}
 
-  /// The deepest painted nodes at the current focus and layout.
-  ///
-  /// A snapshot also contains ancestor geometry so tile layers can paint
-  /// hierarchy backgrounds and spacing. Labels, semantics, and tooltips
-  /// normally target these end blocks instead of those ancestors.
-  Iterable<TreemapGeometryNode<K>> get visibleLeafNodes sync* {
-    final visible = snapshot.visibleNodes.toList(growable: false);
-    final parents = visible
-        .map((node) => node.parentKey)
-        .whereType<TreemapKey<K>>()
-        .toSet();
-    for (final node in visible) {
-      if (!parents.contains(node.key)) yield node;
+/// Internal frame-scoped memoization. Never stored in published presentation.
+final class _TreemapFrameResources<K> {
+  final Map<
+    BuildContext,
+    Map<TreemapAppearanceResolver<K>, Map<TreemapKey<K>, TreemapAppearance>>
+  >
+  _contexts = HashMap.identity();
+  bool _clearScheduled = false;
+
+  Map<TreemapKey<K>, TreemapAppearance> resolve(
+    BuildContext context,
+    TreemapPresentationState<K> state,
+    TreemapAppearanceResolver<K> resolver,
+  ) {
+    Map<TreemapKey<K>, TreemapAppearance> resolve() {
+      final scale = state.resolveColorScale(resolver.colorScale);
+      return Map.unmodifiable({
+        for (final entry in state.details.entries)
+          entry.key: resolver.resolve(
+            context,
+            entry.value,
+            state.statesFor(entry.key),
+            resolvedScale: scale,
+          ),
+      });
     }
+
+    final binding = SchedulerBinding.instance;
+    // A custom layer's descendants can rebuild without recreating their visual
+    // context. Keep sharing within the frame, but never retain appearances for
+    // the next build's inherited environment (or calls outside rendering).
+    if (binding.schedulerPhase != SchedulerPhase.persistentCallbacks) {
+      return resolve();
+    }
+    if (!_clearScheduled) {
+      _clearScheduled = true;
+      binding.addPostFrameCallback((_) {
+        _contexts.clear();
+        _clearScheduled = false;
+      });
+    }
+    return _contexts
+        .putIfAbsent(context, () => HashMap.identity())
+        .putIfAbsent(resolver, resolve);
   }
 }
 
-/// Combines the tooltip target with the complete visual-layer state.
+/// Tooltip target accompanied by the same visual context as other layers.
 final class TreemapTooltipContext<K> {
   const TreemapTooltipContext({required this.details, required this.visual});
-
   final TreemapNodeDetails<K> details;
   final TreemapVisualContext<K> visual;
 }

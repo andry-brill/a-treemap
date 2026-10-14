@@ -48,7 +48,7 @@ void main() {
       final layout = TreemapLayoutConfig<String>(maxVisibleDepth: 1);
       Widget chart(bool surround) => _app(
         TreemapChart<String>(
-          root: root,
+          tree: TreemapNormalizer.normalize(root),
           controller: controller,
           tiles: tiles,
           layout: layout,
@@ -60,16 +60,26 @@ void main() {
       await tester.pumpAndSettle();
       controller.zoomTo('a');
       await tester.pumpAndSettle();
-      final before = tiles.visual.snapshot;
+      final before = tiles.visual.presentation.displayedSnapshot!;
       expect(before.focusKey, const TreemapKey.source('a'));
       await tester.pumpWidget(chart(true));
-      expect(tiles.visual.snapshot.focusKey, before.focusKey);
       expect(
-        tiles.visual.snapshot.nodes.map((node) => node.key),
+        tiles.visual.presentation.displayedSnapshot!.focusKey,
+        before.focusKey,
+      );
+      expect(
+        tiles.visual.presentation.displayedSnapshot!.nodes.map(
+          (node) => node.key,
+        ),
         before.nodes.map((node) => node.key),
       );
       expect(
-        tiles.visual.snapshot.index[const TreemapKey.source('x')]!.bounds,
+        tiles
+            .visual
+            .presentation
+            .displayedSnapshot!
+            .index[const TreemapKey.source('x')]!
+            .bounds,
         before.index[const TreemapKey.source('x')]!.bounds,
       );
       await tester.pumpAndSettle();
@@ -95,7 +105,7 @@ void main() {
           children: [
             Expanded(
               child: TreemapChart<String>(
-                root: _tree(),
+                tree: TreemapNormalizer.normalize(_tree()),
                 tiles: left,
                 surrounding: TreemapLegend(
                   scale: _scale,
@@ -105,7 +115,7 @@ void main() {
             ),
             Expanded(
               child: TreemapChart<String>(
-                root: secondRoot,
+                tree: TreemapNormalizer.normalize(secondRoot),
                 tiles: right,
                 surrounding: TreemapLegend(
                   scale: _scale,
@@ -140,13 +150,15 @@ void main() {
               width: 600,
               height: 300,
               child: TreemapChart<String>(
-                root: TreemapNode(
-                  key: 'root',
-                  children: [
-                    TreemapNode(key: 'large', weight: 1000),
-                    TreemapNode(key: 'small1', weight: 1),
-                    TreemapNode(key: 'small2', weight: weight),
-                  ],
+                tree: TreemapNormalizer.normalize(
+                  TreemapNode(
+                    key: 'root',
+                    children: [
+                      TreemapNode(key: 'large', weight: 1000),
+                      TreemapNode(key: 'small1', weight: 1),
+                      TreemapNode(key: 'small2', weight: weight),
+                    ],
+                  ),
                 ),
                 controller: controller,
                 tiles: tiles,
@@ -163,34 +175,32 @@ void main() {
       }
 
       await show(2);
-      final aggregate = tiles.visual.snapshot.visibleNodes.singleWhere(
-        (node) => node.isAggregate,
-      );
-      controller.setHovered(aggregate.key, color: aggregate.weight);
+      final aggregate = tiles
+          .visual
+          .presentation
+          .displayedSnapshot!
+          .visibleNodes
+          .singleWhere((node) => node.isAggregate);
+      tiles.visual.actions.hover(aggregate.key);
       await tester.pumpAndSettle();
       expect(tiles.visual.presentation.hoveredColor, 3);
       notifications = 0;
       await show(4);
       expect(tiles.visual.presentation.hoveredColor, isNull);
-      expect(
-        controller.hoveredColor,
-        3,
-      ); // Last interaction input remains intact.
+      expect(tiles.visual.presentation.hoveredKey, isNull);
       expect(notifications, 0);
-      final replacement = tiles.visual.snapshot.visibleNodes.singleWhere(
-        (node) => node.isAggregate,
-      );
+      final replacement = tiles
+          .visual
+          .presentation
+          .displayedSnapshot!
+          .visibleNodes
+          .singleWhere((node) => node.isAggregate);
       expect(replacement.key, isNot(aggregate.key));
-      controller.setHovered(replacement.key, color: replacement.weight);
+      tiles.visual.actions.hover(replacement.key);
       await tester.pumpAndSettle();
       expect(tiles.visual.presentation.hoveredColor, 5);
       final state = tiles.visual.presentation;
-      controller.revealAggregate(
-        TreemapNodeDetails(
-          geometry: state.targetSnapshot!.index[replacement.key]!,
-          path: const [],
-        ),
-      );
+      tiles.visual.actions.revealAggregate(replacement.key);
       await tester.pumpAndSettle();
       expect(tiles.visual.presentation.hoveredColor, isNull);
       expect(tiles.visual.presentation.resolveColorScale(_scale).maximum, 4);
@@ -204,14 +214,14 @@ void main() {
   testWidgets(
     'callback-driven host rebuilds settle without a presentation loop',
     (tester) async {
-      final root = _tree();
+      final tree = TreemapNormalizer.normalize(_tree());
       var publications = 0;
       await tester.pumpWidget(
         _app(
           StatefulBuilder(
             builder: (context, setState) {
               return TreemapChart<String>(
-                root: root,
+                tree: tree,
                 tiles: const TreemapNoopTileLayer(),
                 layout: TreemapLayoutConfig(maxVisibleDepth: 1),
                 onPresentationChanged: (_) => setState(() => publications++),
@@ -242,7 +252,7 @@ void main() {
             width: width,
             height: 300,
             child: TreemapChart<String>(
-              root: root,
+              tree: TreemapNormalizer.normalize(root),
               controller: controller,
               tiles: tiles,
               layout: TreemapLayoutConfig(maxVisibleDepth: depth),
@@ -278,7 +288,7 @@ void main() {
     await tester.pumpWidget(
       _app(
         TreemapChart<String>(
-          root: _tree(),
+          tree: TreemapNormalizer.normalize(_tree()),
           tiles: tiles,
           layout: TreemapLayoutConfig(maxVisibleDepth: 1),
           surrounding: TreemapSurroundingGrid(
@@ -302,7 +312,7 @@ void main() {
     expect(tiles.builds, buildsAfterLayout);
     expect(
       tiles.visual.presentation.displayedSnapshot,
-      same(tiles.visual.snapshot),
+      same(tiles.visual.presentation.displayedSnapshot!),
     );
   });
 
@@ -322,7 +332,7 @@ void main() {
             children: [
               Expanded(
                 child: TreemapChart<String>(
-                  root: _tree(),
+                  tree: TreemapNormalizer.normalize(_tree()),
                   controller: controller,
                   tiles: tiles,
                   layout: TreemapLayoutConfig(maxVisibleDepth: 1),
@@ -381,7 +391,7 @@ void main() {
       final publications = <TreemapPresentationState<String>>[];
       Widget chart(TreemapController<String> controller) => _app(
         TreemapChart<String>(
-          root: root,
+          tree: TreemapNormalizer.normalize(root),
           controller: controller,
           tiles: tiles,
           onPresentationChanged: publications.add,
@@ -389,7 +399,7 @@ void main() {
       );
       await tester.pumpWidget(chart(first));
       await tester.pumpAndSettle();
-      second.synchronize(root);
+      second.synchronize(TreemapNormalizer.normalize(root));
       second.zoomTo('a');
       await tester.pumpWidget(chart(second));
       await tester.pumpAndSettle();

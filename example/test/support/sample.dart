@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 TreemapNode<String> sampleTree() => marketTree();
 final sampleHierarchyColorScale = suggestedScale(
-  marketTree(),
+  TreemapNormalizer.normalize(marketTree()),
   const Color(0xFF607D8B),
 );
 TreemapTiles<String> sampleTiles() => TreemapTiles(

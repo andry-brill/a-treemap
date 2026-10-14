@@ -43,14 +43,14 @@ TreemapTilePainter<String> _tiles(WidgetTester tester) => tester
 Widget _chart({
   required TreemapController<String> controller,
   required TreemapColorScale scale,
-  required TreemapNode<String> root,
+  required TreemapNormalizedTree<String> tree,
   int? depth,
   bool animate = false,
   TreemapLegendConfig? legendConfig,
 }) {
   final appearance = TreemapAppearanceResolver<String>(colorScale: scale);
   return TreemapChart<String>(
-    root: root,
+    tree: tree,
     controller: controller,
     layout: TreemapLayoutConfig(maxVisibleDepth: depth),
     tiles: TreemapTiles(appearance: appearance),
@@ -88,7 +88,7 @@ void main() {
             _chart(
               controller: controller,
               scale: scale,
-              root: root,
+              tree: TreemapNormalizer.normalize(root),
               depth: depth,
               animate: true,
             ),
@@ -137,7 +137,13 @@ void main() {
     final scale = _scale();
     final root = _tree();
     await tester.pumpWidget(
-      _app(_chart(controller: controller, scale: scale, root: root)),
+      _app(
+        _chart(
+          controller: controller,
+          scale: scale,
+          tree: TreemapNormalizer.normalize(root),
+        ),
+      ),
     );
     await tester.pumpAndSettle();
     final thirty = _tiles(
@@ -160,7 +166,13 @@ void main() {
       ],
     );
     await tester.pumpWidget(
-      _app(_chart(controller: controller, scale: scale, root: updated)),
+      _app(
+        _chart(
+          controller: controller,
+          scale: scale,
+          tree: TreemapNormalizer.normalize(updated),
+        ),
+      ),
     );
     await tester.pumpAndSettle();
     expect(_presentation(tester).resolveColorScale(scale).maximum, 120);
@@ -199,7 +211,7 @@ void main() {
           _chart(
             controller: controller,
             scale: scale,
-            root: root(30),
+            tree: TreemapNormalizer.normalize(root(30)),
             legendConfig: legend,
           ),
         ),
@@ -226,7 +238,7 @@ void main() {
           _chart(
             controller: controller,
             scale: scale,
-            root: root(50),
+            tree: TreemapNormalizer.normalize(root(50)),
             legendConfig: legend,
           ),
         ),
@@ -245,7 +257,7 @@ void main() {
           .whereType<TreemapCanvasLabelPainter<String>>()
           .single;
       expect(labels.appearances[const TreemapKey.source('y')]!.color, expected);
-      expect(controller.hoveredColor, 50);
+      expect(_presentation(tester).hoveredColor, 50);
       expect(pointer, .8);
       expect(pointerColor, expected);
     },
@@ -276,7 +288,7 @@ void main() {
           _chart(
             controller: controller,
             scale: scale,
-            root: root,
+            tree: TreemapNormalizer.normalize(root),
             legendConfig: legend,
           ),
         ),
@@ -321,7 +333,9 @@ void main() {
         _app(
           TreemapLegendView(
             scale: scale,
-            presentation: TreemapPresentationState.fromData(root: _tree()),
+            presentation: TreemapPresentationState.fromData(
+              tree: TreemapNormalizer.normalize(_tree()),
+            ),
             config: const TreemapLegendConfig.bar(segmented: true),
           ),
         ),
@@ -332,9 +346,11 @@ void main() {
           TreemapLegendView(
             scale: scale,
             presentation: TreemapPresentationState.fromData(
-              root: TreemapNode(
-                key: 'root',
-                children: [TreemapNode(key: 'x', weight: 7)],
+              tree: TreemapNormalizer.normalize(
+                TreemapNode(
+                  key: 'root',
+                  children: [TreemapNode(key: 'x', weight: 7)],
+                ),
               ),
             ),
             config: const TreemapLegendConfig.bar(segmented: true),
@@ -371,7 +387,7 @@ void main() {
           builder: (_, _) => _chart(
             controller: controller,
             scale: scale,
-            root: _tree(),
+            tree: TreemapNormalizer.normalize(_tree()),
             depth: 1,
           ),
         ),
@@ -397,7 +413,7 @@ void main() {
           width: 600,
           height: height,
           child: TreemapChart<String>(
-            root: root,
+            tree: TreemapNormalizer.normalize(root),
             controller: controller,
             tiles: TreemapTiles(
               appearance: TreemapAppearanceResolver(colorScale: scale),

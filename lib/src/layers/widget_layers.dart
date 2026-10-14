@@ -67,7 +67,7 @@ Widget _buildNodeWidgets<K>(
   required bool ignorePointer,
   Clip clipBehavior = Clip.none,
 }) {
-  final nodes = visual.visibleLeafNodes.toList()
+  final nodes = visual.presentation.visibleLeafNodes.toList()
     ..sort((a, b) {
       final area = b.bounds.area.compareTo(a.bounds.area);
       return area != 0 ? area : a.key.hashCode.compareTo(b.key.hashCode);
@@ -89,8 +89,8 @@ Widget _buildNodeWidgets<K>(
           child: _configureNodeWidget(
             builder(
               context,
-              visual.details[node.key]!,
-              visual.statesFor(node.key),
+              visual.presentation.details[node.key]!,
+              visual.presentation.statesFor(node.key),
             ),
             ignorePointer: ignorePointer,
             clipBehavior: clipBehavior,

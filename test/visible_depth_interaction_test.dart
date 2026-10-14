@@ -63,7 +63,7 @@ void main() {
           width: 500,
           height: 300,
           child: TreemapChart<String>(
-            root: _tree(),
+            tree: TreemapNormalizer.normalize(_tree()),
             controller: controller,
             tiles: testTreemapTiles(),
             layout: const TreemapLayoutConfig(maxVisibleDepth: 1),
@@ -80,7 +80,8 @@ void main() {
             ),
             semantics: const TreemapSemantics(),
             interaction: TreemapInteractionConfig(onNodeTap: (_) {}),
-            onSnapshot: (value) => snapshot = value,
+            onPresentationChanged: (presentation) =>
+                snapshot = presentation.targetSnapshot!,
           ),
         ),
       ),
@@ -132,7 +133,7 @@ void main() {
     addTearDown(controller.dispose);
     await tester.pumpTreemapApp(
       TreemapChart<String>(
-        root: _tree(),
+        tree: TreemapNormalizer.normalize(_tree()),
         controller: controller,
         tiles: testTreemapTiles(),
         layout: const TreemapLayoutConfig(maxVisibleDepth: 1),
@@ -174,7 +175,7 @@ void main() {
               child: ValueListenableBuilder<int?>(
                 valueListenable: depth,
                 builder: (_, limit, _) => TreemapChart<String>(
-                  root: root,
+                  tree: TreemapNormalizer.normalize(root),
                   controller: controller,
                   tiles: tiles,
                   layout: TreemapLayoutConfig(maxVisibleDepth: limit),
@@ -197,38 +198,46 @@ void main() {
         controller.select('a');
         await tester.pumpAndSettle();
         const key = TreemapKey.source('a');
-        tiles.visual.onFocus(tiles.visual.details[key]!);
+        tiles.visual.actions.focus(key);
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: const Offset(700, 500));
-        await mouse.moveTo(_centerOf(tester, tiles.visual.snapshot, 'a'));
+        await mouse.moveTo(
+          _centerOf(tester, tiles.visual.presentation.displayedSnapshot!, 'a'),
+        );
         await tester.pump();
-        expect(controller.hoveredKey, key);
+        expect(tiles.visual.presentation.hoveredKey, key);
         expect(find.text('Tooltip Alpha'), findsOneWidget);
         expect(
-          tiles.visual.statesFor(key),
+          tiles.visual.presentation.statesFor(key),
           contains(TreemapVisualState.focused),
         );
         depth.value = 1;
         await tester.pump();
-        expect(controller.hoveredKey, isNull);
+        expect(tiles.visual.presentation.hoveredKey, isNull);
         expect(hovered, [key, null]);
         expect(find.text('Tooltip Alpha'), findsNothing);
         await tester.pumpAndSettle();
         expect(controller.focusKey, const TreemapKey.source('group'));
         expect(controller.selectedEntries, contains(key));
-        expect(tiles.visual.snapshot.index.containsKey(key), isFalse);
+        expect(
+          tiles.visual.presentation.displayedSnapshot!.index.containsKey(key),
+          isFalse,
+        );
         depth.value = null;
         await tester.pumpAndSettle();
-        expect(tiles.visual.snapshot.index.containsKey(key), isTrue);
         expect(
-          tiles.visual.statesFor(key),
+          tiles.visual.presentation.displayedSnapshot!.index.containsKey(key),
+          isTrue,
+        );
+        expect(
+          tiles.visual.presentation.statesFor(key),
           contains(TreemapVisualState.selected),
         );
         expect(
-          tiles.visual.statesFor(key),
+          tiles.visual.presentation.statesFor(key),
           isNot(contains(TreemapVisualState.focused)),
         );
-        expect(controller.hoveredKey, isNull);
+        expect(tiles.visual.presentation.hoveredKey, isNull);
         expect(find.text('Tooltip Alpha'), findsNothing);
         expect(tester.takeException(), isNull);
         await mouse.removePointer();
@@ -257,11 +266,12 @@ void main() {
       ],
     );
     final tiles = _RecordingTiles();
+    var tree = TreemapNormalizer.normalize(root);
     await tester.pumpTreemapApp(
       ValueListenableBuilder<int?>(
         valueListenable: depth,
         builder: (_, limit, _) => TreemapChart<String>(
-          root: root,
+          tree: tree,
           controller: controller,
           tiles: tiles,
           layout: TreemapLayoutConfig(
@@ -277,28 +287,38 @@ void main() {
         ),
       ),
     );
-    final key = tiles.visual.snapshot.nodes
+    final key = tiles.visual.presentation.displayedSnapshot!.nodes
         .singleWhere((node) => node.isAggregate)
         .key;
     controller.selectEntry(key);
     await tester.pumpAndSettle();
     depth.value = 1;
     await tester.pumpAndSettle();
-    expect(tiles.visual.snapshot.index.containsKey(key), isFalse);
+    expect(
+      tiles.visual.presentation.displayedSnapshot!.index.containsKey(key),
+      isFalse,
+    );
     expect(controller.selectedEntries, {key});
     depth.value = 2;
     await tester.pumpAndSettle();
-    expect(tiles.visual.snapshot.index.containsKey(key), isTrue);
-    expect(tiles.visual.statesFor(key), contains(TreemapVisualState.selected));
+    expect(
+      tiles.visual.presentation.displayedSnapshot!.index.containsKey(key),
+      isTrue,
+    );
+    expect(
+      tiles.visual.presentation.statesFor(key),
+      contains(TreemapVisualState.selected),
+    );
     root = TreemapNode(
       key: 'root',
       children: [TreemapNode(key: 'replacement', weight: 1)],
     );
+    tree = TreemapNormalizer.normalize(root);
     depth.value = null;
     await tester.pumpAndSettle();
     expect(controller.selectedEntries, isEmpty);
     expect(
-      tiles.visual.snapshot.nodes.single.key,
+      tiles.visual.presentation.displayedSnapshot!.nodes.single.key,
       const TreemapKey.source('replacement'),
     );
   });
@@ -311,12 +331,13 @@ void main() {
     late TreemapGeometrySnapshot<String> snapshot;
     await tester.pumpTreemapApp(
       TreemapChart<String>(
-        root: _tree(),
+        tree: TreemapNormalizer.normalize(_tree()),
         controller: controller,
         tiles: testTreemapTiles(),
         layout: const TreemapLayoutConfig(maxVisibleDepth: 1),
         interaction: const TreemapInteractionConfig(zoomOnNodeTap: false),
-        onSnapshot: (value) => snapshot = value,
+        onPresentationChanged: (presentation) =>
+            snapshot = presentation.targetSnapshot!,
       ),
     );
     await tester.tapAt(_centerOf(tester, snapshot, 'group'));

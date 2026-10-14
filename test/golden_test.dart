@@ -34,7 +34,7 @@ void main() {
       RepaintBoundary(
         key: const ValueKey('golden'),
         child: TreemapChart<String>(
-          root: _goldenTree(),
+          tree: TreemapNormalizer.normalize(_goldenTree()),
           tiles: testTreemapTiles(),
           layout: TreemapLayoutConfig(
             innerSpacing: 2,
@@ -57,7 +57,7 @@ void main() {
       RepaintBoundary(
         key: const ValueKey('golden'),
         child: TreemapChart<String>(
-          root: _goldenTree(),
+          tree: TreemapNormalizer.normalize(_goldenTree()),
           tiles: testTreemapTiles(),
           labels: testTreemapLabels(config: goldenLabelConfig<String>()),
           layout: TreemapLayoutConfig(
@@ -81,7 +81,7 @@ void main() {
       RepaintBoundary(
         key: const ValueKey('golden'),
         child: TreemapChart<String>(
-          root: _goldenTree(),
+          tree: TreemapNormalizer.normalize(_goldenTree()),
           tiles: testTreemapTiles(
             colorScale: TreemapColorScale.interpolated(
               minimum: 2,

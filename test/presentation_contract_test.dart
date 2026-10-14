@@ -10,7 +10,7 @@ final class _RecordingTiles implements TreemapTileLayer<String> {
     latest = visual;
     return Stack(
       children: [
-        for (final node in visual.visibleLeafNodes)
+        for (final node in visual.presentation.visibleLeafNodes)
           Positioned(
             left: node.bounds.left,
             top: node.bounds.top,
@@ -51,7 +51,10 @@ void main() {
     tester,
   ) async {
     final tiles = _RecordingTiles();
-    final chart = TreemapChart<String>(root: _tree(), tiles: tiles);
+    final chart = TreemapChart<String>(
+      tree: TreemapNormalizer.normalize(_tree()),
+      tiles: tiles,
+    );
 
     expect(chart.labels, isNull);
     expect(chart.tooltip, isNull);
@@ -74,7 +77,9 @@ void main() {
 
     expect(tiles.latest, isNotNull);
     expect(
-      tiles.latest!.visibleLeafNodes.map((node) => node.key.sourceKey),
+      tiles.latest!.presentation.visibleLeafNodes.map(
+        (node) => node.key.sourceKey,
+      ),
       unorderedEquals(['a', 'b']),
     );
     expect(find.byType(ColoredBox), findsNWidgets(2));
@@ -95,9 +100,10 @@ void main() {
             width: 300,
             height: 200,
             child: TreemapChart<String>(
-              root: _tree(),
+              tree: TreemapNormalizer.normalize(_tree()),
               tiles: const TreemapNoopTileLayer(),
-              onSnapshot: (value) => snapshot = value,
+              onPresentationChanged: (presentation) =>
+                  snapshot = presentation.targetSnapshot!,
             ),
           ),
         ),
@@ -119,7 +125,7 @@ void main() {
             width: 300,
             height: 200,
             child: TreemapChart<String>(
-              root: _tree(),
+              tree: TreemapNormalizer.normalize(_tree()),
               tiles: const TreemapNoopTileLayer(),
               labels: TreemapWidgetLabels(
                 builder: (context, details, states) => CustomPaint(
@@ -153,14 +159,15 @@ void main() {
               width: 180,
               height: 80,
               child: TreemapChart<String>(
-                root: _manyLeaves(12),
+                tree: TreemapNormalizer.normalize(_manyLeaves(12)),
                 tiles: const TreemapNoopTileLayer(),
                 layout: TreemapLayoutConfig(
                   minimumWidth: 60,
                   minimumHeight: 30,
                   minimumNodePolicy: TreemapMinimumNodePolicy.aggregate,
                 ),
-                onSnapshot: (value) => snapshot = value,
+                onPresentationChanged: (presentation) =>
+                    snapshot = presentation.targetSnapshot!,
               ),
             ),
           ),

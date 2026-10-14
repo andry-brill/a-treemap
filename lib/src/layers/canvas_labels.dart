@@ -46,21 +46,12 @@ final class TreemapCanvasLabels<K> implements TreemapLabelLayer<K> {
         'chart in WidgetsApp, MaterialApp, or Localizations.',
       );
     }
-    final scale = visual.presentation.resolveColorScale(appearance.colorScale);
-    final appearances = {
-      for (final node in visual.snapshot.nodes)
-        node.key: appearance.resolve(
-          context,
-          visual.details[node.key]!,
-          visual.statesFor(node.key),
-          resolvedScale: scale,
-        ),
-    };
+    final appearances = visual.resolveAppearances(context, appearance);
     return IgnorePointer(
       child: CustomPaint(
         painter: TreemapCanvasLabelPainter<K>(
-          nodes: visual.visibleLeafNodes.toList(growable: false),
-          details: visual.details,
+          nodes: visual.presentation.visibleLeafNodes.toList(growable: false),
+          details: visual.presentation.details,
           appearances: appearances,
           config: config,
           padding: appearance.style.labelPadding,

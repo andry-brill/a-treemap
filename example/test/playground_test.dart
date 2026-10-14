@@ -43,7 +43,7 @@ void main() {
       final compact = store.location.uri;
       final chartFinder = find.byType(TreemapChart<String>);
       final chart = tester.widget<TreemapChart<String>>(chartFinder);
-      final root = chart.root;
+      final root = chart.tree.root;
       chart.controller!.zoomTo('consumer');
       await tester.pumpAndSettle();
       expect(store.location.uri, compact);
@@ -74,7 +74,7 @@ void main() {
       );
       final edited = store.location.uri;
       final editedChart = tester.widget<TreemapChart<String>>(chartFinder);
-      expect(editedChart.root, same(root));
+      expect(editedChart.tree.root, same(root));
       expect(
         editedChart.controller!.focusKey,
         const TreemapKey.source('consumer'),
@@ -199,7 +199,7 @@ void main() {
       final chart = tester.widget<TreemapChart<String>>(
         find.byType(TreemapChart<String>),
       );
-      expect(chart.root.key, 'merchants');
+      expect(chart.tree.root.key, 'merchants');
       expect(chart.layout.innerSpacing, 3);
       expect(tester.takeException(), isNull);
     },

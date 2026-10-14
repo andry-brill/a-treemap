@@ -54,9 +54,10 @@ void main() {
         width: 300,
         height: 200,
         child: TreemapChart<String>(
-          root: _tree(),
+          tree: TreemapNormalizer.normalize(_tree()),
           tiles: testTreemapTiles(),
-          onSnapshot: (value) => snapshot = value,
+          onPresentationChanged: (presentation) =>
+              snapshot = presentation.targetSnapshot!,
           surrounding: TreemapSurroundingGrid<String>.fromMap(
             {
               TreemapOverlayPosition.topStart: _box('top-start', height: 20),
@@ -129,9 +130,10 @@ void main() {
         width: 300,
         height: 200,
         child: TreemapChart<String>(
-          root: _tree(),
+          tree: TreemapNormalizer.normalize(_tree()),
           tiles: testTreemapTiles(),
-          onSnapshot: (value) => snapshot = value,
+          onPresentationChanged: (presentation) =>
+              snapshot = presentation.targetSnapshot!,
           surrounding: TreemapSurroundingGrid<String>(
             topStart: const TreemapSurroundingContent<String>.widget(
               child: SizedBox(height: 56, child: Text('Header')),
@@ -156,9 +158,10 @@ void main() {
         width: 300,
         height: 200,
         child: TreemapChart<String>(
-          root: _tree(),
+          tree: TreemapNormalizer.normalize(_tree()),
           tiles: testTreemapTiles(),
-          onSnapshot: (value) => snapshot = value,
+          onPresentationChanged: (presentation) =>
+              snapshot = presentation.targetSnapshot!,
           surrounding: const TreemapSurroundingGrid<String>(
             topCenter: TreemapSurroundingContent<String>.widget(
               child: SizedBox(
@@ -200,9 +203,10 @@ void main() {
         width: 300,
         height: 200,
         child: TreemapChart<String>(
-          root: _tree(),
+          tree: TreemapNormalizer.normalize(_tree()),
           tiles: testTreemapTiles(),
-          onSnapshot: (value) => snapshot = value,
+          onPresentationChanged: (presentation) =>
+              snapshot = presentation.targetSnapshot!,
           surrounding: const TreemapSurroundingGrid<String>(
             padding: EdgeInsets.all(10),
             rowGap: 20,
@@ -219,9 +223,10 @@ void main() {
         width: 300,
         height: 200,
         child: TreemapChart<String>(
-          root: _tree(),
+          tree: TreemapNormalizer.normalize(_tree()),
           tiles: testTreemapTiles(),
-          onSnapshot: (value) => snapshot = value,
+          onPresentationChanged: (presentation) =>
+              snapshot = presentation.targetSnapshot!,
           surrounding: TreemapSurroundingGrid<String>(
             middleStart: _box('only-side', width: 40),
             padding: const EdgeInsets.all(10),
@@ -243,9 +248,10 @@ void main() {
         width: 300,
         height: 100,
         child: TreemapChart<String>(
-          root: _tree(),
+          tree: TreemapNormalizer.normalize(_tree()),
           tiles: testTreemapTiles(),
-          onSnapshot: (value) => snapshot = value,
+          onPresentationChanged: (presentation) =>
+              snapshot = presentation.targetSnapshot!,
           surrounding: TreemapSurroundingGrid<String>(
             topStart: _box('start'),
             topEnd: _box('end'),
@@ -274,62 +280,66 @@ void main() {
     expect(snapshot!.viewport.width, 210);
   });
 
-  testWidgets('built-ins and content factories receive the active controller', (
-    tester,
-  ) async {
-    final controller = TreemapController<String>();
-    controller
-      ..synchronize(_tree())
-      ..zoomTo('group')
-      ..setHovered(const TreemapKey.source('leaf'), color: 1);
-    addTearDown(controller.dispose);
-    final scale = TreemapColorScale.interpolated(
-      minimum: 0,
-      maximum: 2,
-      colors: const [Colors.blue, Colors.red],
-      fallback: Colors.grey,
-    );
+  testWidgets(
+    'built-ins and content factories consume presentation and actions',
+    (tester) async {
+      final controller = TreemapController<String>();
+      controller
+        ..synchronize(TreemapNormalizer.normalize(_tree()))
+        ..zoomTo('group');
+      addTearDown(controller.dispose);
+      final scale = TreemapColorScale.interpolated(
+        minimum: 0,
+        maximum: 2,
+        colors: const [Colors.blue, Colors.red],
+        fallback: Colors.grey,
+      );
 
-    await tester.pumpTreemapApp(
-      _frame(
-        width: 600,
-        height: 300,
-        child: TreemapChart<String>(
-          root: _tree(),
-          controller: controller,
-          tiles: testTreemapTiles(colorScale: scale),
-          surrounding: TreemapSurroundingGrid<String>(
-            topStart: const TreemapBreadcrumbs<String>(),
-            topEnd: TreemapLegend<String>(
-              scale: scale,
-              config: const TreemapLegendConfig.bar(showLabels: false),
-            ),
-            bottomStart: const TreemapSurroundingContent<String>.widget(
-              child: Text('Static', key: ValueKey('static-content')),
-            ),
-            bottomEnd: TreemapSurroundingContent<String>.builder(
-              builder: (context, activeController) => Text(
-                '${activeController.currentPath.length}',
-                key: const ValueKey('builder-content'),
+      await tester.pumpTreemapApp(
+        _frame(
+          width: 600,
+          height: 300,
+          child: TreemapChart<String>(
+            tree: TreemapNormalizer.normalize(_tree()),
+            controller: controller,
+            tiles: testTreemapTiles(colorScale: scale),
+            surrounding: TreemapSurroundingGrid<String>(
+              topStart: const TreemapBreadcrumbs<String>(),
+              topEnd: TreemapLegend<String>(
+                scale: scale,
+                config: const TreemapLegendConfig.bar(showLabels: false),
+              ),
+              bottomStart: const TreemapSurroundingContent<String>.widget(
+                child: Text('Static', key: ValueKey('static-content')),
+              ),
+              bottomEnd: TreemapSurroundingContent<String>.builder(
+                builder: (context, visual) => Text(
+                  '${visual.presentation.currentPath.length}',
+                  key: const ValueKey('builder-content'),
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
+      );
 
-    // Surrounding consumers receive the computed hover input after layout.
-    await tester.pump();
-    expect(find.byType(TreemapBreadcrumbsView<String>), findsOneWidget);
-    expect(find.byType(TreemapLegendView<String>), findsOneWidget);
-    expect(find.byType(TreemapLegendPointer), findsOneWidget);
-    expect(find.byKey(const ValueKey('static-content')), findsOneWidget);
-    expect(find.text('2'), findsOneWidget);
+      TreemapPresentationScope.actionsOf<String>(
+        tester.element(find.byType(TreemapBreadcrumbsView<String>)),
+      ).hover(const TreemapKey.source('leaf'));
+      await tester.pump();
+      // Surrounding consumers receive the computed hover input after layout.
+      await tester.pump();
+      expect(find.byType(TreemapBreadcrumbsView<String>), findsOneWidget);
+      expect(find.byType(TreemapLegendView<String>), findsOneWidget);
+      expect(find.byType(TreemapLegendPointer), findsOneWidget);
+      expect(find.byKey(const ValueKey('static-content')), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
 
-    await tester.tap(find.text('Root'));
-    await tester.pump();
-    expect(controller.focusKey, const TreemapKey.source('root'));
-  });
+      await tester.tap(find.text('Root'));
+      await tester.pump();
+      expect(controller.focusKey, const TreemapKey.source('root'));
+    },
+  );
 
   testWidgets('clip behavior uses standard ClipRect composition', (
     tester,
@@ -338,7 +348,7 @@ void main() {
       width: 300,
       height: 200,
       child: TreemapChart<String>(
-        root: _tree(),
+        tree: TreemapNormalizer.normalize(_tree()),
         tiles: testTreemapTiles(),
         surrounding: TreemapSurroundingGrid<String>(
           topStart: _box('clipped-content'),

@@ -41,10 +41,11 @@ void main() {
       RepaintBoundary(
         key: const ValueKey('builder-aggregation-golden'),
         child: TreemapChart<String>(
-          root: scenarioChart.root,
+          tree: scenarioChart.tree,
           layout: scenarioChart.layout,
           tiles: TreemapTiles(appearance: appearance),
-          onSnapshot: (value) => snapshot = value,
+          onPresentationChanged: (presentation) =>
+              snapshot = presentation.targetSnapshot!,
         ),
       ),
       surfaceSize: const Size(1000, 700),

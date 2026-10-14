@@ -53,11 +53,12 @@ void main() {
         width: 400,
         height: 300,
         child: TreemapChart<String>(
-          root: _root(),
+          tree: TreemapNormalizer.normalize(_root()),
           tiles: testTreemapTiles(),
           labels: testTreemapLabels(),
           semantics: const TreemapSemantics(),
-          onSnapshot: (value) => snapshot = value,
+          onPresentationChanged: (presentation) =>
+              snapshot = presentation.targetSnapshot!,
         ),
       ),
     );
@@ -83,12 +84,15 @@ void main() {
         height: 200,
         child: TreemapChart<String>(
           key: const ValueKey('empty-chart'),
-          root: TreemapNode(
-            key: 'root',
-            children: [TreemapNode(key: 'zero', weight: 0)],
+          tree: TreemapNormalizer.normalize(
+            TreemapNode(
+              key: 'root',
+              children: [TreemapNode(key: 'zero', weight: 0)],
+            ),
           ),
           tiles: const TreemapNoopTileLayer(),
-          onSnapshot: (value) => snapshot = value,
+          onPresentationChanged: (presentation) =>
+              snapshot = presentation.targetSnapshot!,
         ),
       ),
     );
@@ -122,10 +126,11 @@ void main() {
               ),
             );
             return TreemapChart<String>(
-              root: _root(first: value),
+              tree: TreemapNormalizer.normalize(_root(first: value)),
               tiles: testTreemapTiles(style: style),
               labels: testTreemapLabels(style: style),
-              onSnapshot: (snapshot) => latest = snapshot,
+              onPresentationChanged: (presentation) =>
+                  latest = presentation.targetSnapshot!,
             );
           },
         ),
@@ -151,7 +156,7 @@ void main() {
         width: 300,
         height: 200,
         child: TreemapChart<String>(
-          root: _root(),
+          tree: TreemapNormalizer.normalize(_root()),
           tiles: testTreemapTiles(),
           controller: controller,
         ),
@@ -169,7 +174,10 @@ void main() {
       SingleChildScrollView(
         child: SizedBox(
           width: 300,
-          child: TreemapChart<String>(root: _root(), tiles: testTreemapTiles()),
+          child: TreemapChart<String>(
+            tree: TreemapNormalizer.normalize(_root()),
+            tiles: testTreemapTiles(),
+          ),
         ),
       ),
     );
@@ -189,7 +197,7 @@ void main() {
           width: 400,
           height: 300,
           child: TreemapChart<String>(
-            root: _root(),
+            tree: TreemapNormalizer.normalize(_root()),
             tiles: testTreemapTiles(),
             labels: testTreemapLabels(),
             semantics: const TreemapSemantics(),

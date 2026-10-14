@@ -2,29 +2,77 @@
 
 ## 2.0.0
 
-- Rebuilt the example catalog as a URL-driven property playground. All 50
-  example IDs now select editable presets over shared datasets; customized
-  links include complete settings and support browser Back/Forward.
-- Added searchable property controls, accessible property help, structured
-  palette/range/rule editors, responsive preview sizing, and registered modes
-  for comparisons, custom compositions, standalone legends and isolate layout.
-- Moved example-specific tests and golden coverage into the example package
-  and added example analysis/tests to CI.
+- **Breaking:** all chart, controller, layout and standalone presentation inputs
+  now share a `TreemapNormalizedTree` prepared explicitly with
+  `TreemapNormalizer.normalize`. Validation, indexes, branch totals and global
+  color extrema are computed once and reused.
+- **Breaking:** the controller owns navigation and uncontrolled selection.
+  Hover, keyboard focus, tooltips, snapshots, color domains and transitions
+  belong to the chart's single update coordinator.
+- **Breaking:** visual and surrounding layers read immutable
+  `TreemapPresentationState` and send keyed `TreemapActions`. Removed controller
+  inputs from legends/breadcrumbs and duplicate fields from visual contexts.
+- **Breaking:** removed `onSnapshot`, its callback typedef, controller hover
+  APIs, `zoomIn` and `zoomToPathEntry`. `onPresentationChanged` is the sole
+  chart-output callback, coalesced after the frame.
+- Shared scale resolution and tile/label appearance calculations within a
+  frame. Transient targets and timers are reconciled for source, focus,
+  viewport, depth, culling, aggregation and disabled-interaction changes.
+- Appearance caches expire after each rendering frame so custom layers refresh
+  when inherited themes change. Aggregate navigation refreshes source ancestry
+  and falls back safely when members move between parents.
+- Rebuilt the example catalog as a URL-driven property playground. The 50
+  existing IDs remain editable presets; `data-prepared-tree` adds two charts
+  sharing one prepared source with independent interaction and visible domains.
+- Added accessible property help, structured editors, responsive previews,
+  comparisons, custom actions, standalone/external legends and isolate execution.
+  Custom URLs include complete configuration and support browser Back/Forward.
+- Moved example tests and goldens into the example package; CI runs package and
+  example analysis/tests and a web build. Benchmarks separate source preparation
+  from reused-tree layout.
 
-- **Breaking:** moved chart snapshots and color domains to immutable
-  `TreemapPresentationState`. Removed controller `resolveColorScale` and
-  `synchronizeLayout`; use `visual.presentation.resolveColorScale` in layers or
-  `TreemapPresentationScope.of` in surrounding content. Controllers retain
-  navigation, hover, and selection without receiving computed layout results.
-- **Breaking:** `TreemapVisualContext` now requires a `presentation` argument.
-  Custom hosts can construct it with `TreemapPresentationState.fromData`.
-- Added `TreemapChart.onPresentationChanged` and `TreemapLegendView.presentation`
-  for external legends and custom observers. Notifications reach presentation
-  consumers after the frame without rebuilding through controller listeners.
-- Standalone automatic legends now require presentation state or an explicitly
-  resolved scale; a controller alone supplies interaction, not color domains.
-- Added a runnable example of chart-owned state, scope-based chrome, custom
-  tiles, and an external legend following depth changes and drill-down.
+### Migration from v1.x to v2
+
+Prepare data once when it changes, and replace chart/layout `root` inputs with
+`tree`. A controller can bind the same prepared input before standalone commands:
+
+```dart
+// v1
+TreemapChart(root: root, tiles: tiles);
+engine.layout(root: root, viewport: viewport);
+controller.synchronize(root);
+
+// v2
+final tree = TreemapNormalizer.normalize(root);
+TreemapChart(tree: tree, tiles: tiles);
+engine.layout(tree: tree, viewport: viewport);
+controller.synchronize(tree);
+```
+
+Replace `onSnapshot: (snapshot) => ...` with
+`onPresentationChanged: (state) => ...` and read `state.targetSnapshot` for layout
+or `state.displayedSnapshot` for the painted frame. Output callbacks now run after
+the frame; keep prepared inputs stable during observer-driven rebuilds.
+
+Read hover from `state.hoveredKey`/`state.hoveredColor`; replace controller hover
+writes with `visual.actions.hover(key)` or `TreemapPresentationScope.actionsOf`.
+Use `controller.zoomTo(key)` for explicit navigation. Aggregate reveal now accepts
+its key and `memberKeys`, while custom chart layers use `actions.revealAggregate(key)`.
+
+Custom layers read `visual.presentation.displayedSnapshot`, `.details`, `.statesFor`,
+`.selectedEntries` and `.isAnimating`. Replace `visual.controller`, `onActivate`
+and `onFocus` with keyed `visual.actions` commands. Surrounding `build`/`wrap`
+callbacks receive `TreemapVisualContext` instead of a controller.
+
+Pass `presentation` to an external legend. Breadcrumbs accept `presentation` and
+`onNavigate: (entry) => controller.zoomTo(entry.key.sourceKey!)`. Inside a chart,
+built-ins use the presentation scope and actions automatically. Standalone
+presentation uses `TreemapPresentationState.fromData(tree: tree, targetSnapshot: snapshot)`;
+static standalone legends may still use explicitly resolved scales. Remove controller `resolveColorScale` and `synchronizeLayout` calls. Resolve
+automatic scales with `presentation.resolveColorScale` or `scale.resolveDomain`.
+
+No deprecated aliases, forwarding constructors or compatibility adapters are
+provided. Migration guidance is confined to this changelog.
 
 ## 1.2.0
 

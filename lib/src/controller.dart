@@ -58,7 +58,7 @@ final class TreemapNodeDetails<K> {
   bool get hasChildren => geometry.hasChildren;
 }
 
-/// Owns navigation, hover, and selection independently from widget identity.
+/// Owns navigation and uncontrolled selection against a prepared source tree.
 final class TreemapController<K> extends ChangeNotifier
     with DiagnosticableTreeMixin {
   TreemapController({this.maximumSelections = 1})
@@ -69,16 +69,12 @@ final class TreemapController<K> extends ChangeNotifier
   TreemapFocus<K>? _focus;
   List<TreemapPathEntry<K>> _path = const [];
   final LinkedHashSet<TreemapKey<K>> _selected = LinkedHashSet();
-  TreemapKey<K>? _hoveredKey;
-  Object? _hoveredColor;
   TreemapKey<K>? get focusKey => _focus?.key;
   List<TreemapPathEntry<K>> get currentPath => List.unmodifiable(_path);
   Set<TreemapKey<K>> get selectedEntries => Set.unmodifiable(_selected);
   Set<K> get selectedKeys => Set.unmodifiable(
     _selected.where((key) => key.isSource).map((key) => key.sourceKey as K),
   );
-  TreemapKey<K>? get hoveredKey => _hoveredKey;
-  Object? get hoveredColor => _hoveredColor;
   bool get canZoomOut => _path.length > 1;
 
   TreemapFocus<K>? get layoutFocus => _focus;
@@ -90,32 +86,33 @@ final class TreemapController<K> extends ChangeNotifier
       ..add(DiagnosticsProperty<TreemapKey<K>?>('focusKey', focusKey))
       ..add(IntProperty('pathLength', _path.length))
       ..add(IntProperty('selectionCount', _selected.length))
-      ..add(DiagnosticsProperty<TreemapKey<K>?>('hoveredKey', _hoveredKey))
       ..add(IntProperty('nodeCount', _tree?.nodes.length ?? 0));
   }
 
   /// Synchronizes state after a caller supplies a new immutable tree.
-  void synchronize(TreemapNode<K> root, {bool notify = true}) {
-    final next = TreemapNormalizer.normalize(root);
+  void synchronize(TreemapNormalizedTree<K> next, {bool notify = true}) {
+    if (identical(next, _tree)) return;
     final oldFocus = _focus;
+    final previousTree = _tree;
     _tree = next;
     if (oldFocus?.key.isAggregate == true) {
       final survivingMembers = oldFocus!.aggregateMembers
           .map((node) => next.nodes[node.key])
           .whereType<TreemapNode<K>>()
           .toList();
-      if (survivingMembers.isNotEmpty) {
-        _focus = TreemapFocus.aggregate(
-          key: oldFocus.key,
-          members: survivingMembers,
-          path: oldFocus.path,
-        );
+      final parent = previousTree?.parents[oldFocus.aggregateMembers.first.key];
+      if (parent != null &&
+          survivingMembers.isNotEmpty &&
+          survivingMembers.every((node) => next.parents[node.key] == parent)) {
+        _setAggregateFocus(oldFocus.key, survivingMembers);
       } else {
         _fallbackToNearestAncestor(next, oldFocus.path);
       }
     } else {
       final sourceKey = oldFocus?.key.sourceKey;
-      if (sourceKey != null && next.nodes.containsKey(sourceKey)) {
+      if (sourceKey != null &&
+          (next.nodes[sourceKey]?.children.isNotEmpty == true ||
+              sourceKey == next.root.key)) {
         _setSourceFocus(next.nodes[sourceKey]!, notify: false);
       } else {
         _fallbackToNearestAncestor(next, _path);
@@ -126,15 +123,6 @@ final class TreemapController<K> extends ChangeNotifier
       if (key.isSource) return !next.nodes.containsKey(key.sourceKey);
       return true;
     });
-    if (_hoveredKey?.isSource == true &&
-        !next.nodes.containsKey(_hoveredKey!.sourceKey)) {
-      _hoveredKey = null;
-      _hoveredColor = null;
-    }
-    if (_hoveredKey?.isSource == true) {
-      final key = _hoveredKey!.sourceKey;
-      _hoveredColor = next.nodes[key]?.color ?? next.totals[key];
-    }
     if (notify) {
       notifyListeners();
     }
@@ -169,43 +157,31 @@ final class TreemapController<K> extends ChangeNotifier
     );
   }
 
-  TreemapCommandResult<K> zoomIn([K? key]) {
-    if (key != null) return zoomTo(key);
-    final candidate = _hoveredKey ?? _selected.firstOrNull;
-    if (candidate?.isSource == true) return zoomTo(candidate!.sourceKey as K);
-    return const TreemapCommandResult(
-      TreemapCommandStatus.missingKey,
-      message: 'zoomIn requires a key, hovered node, or selected node.',
-    );
-  }
-
-  TreemapCommandResult<K> revealAggregate(TreemapNodeDetails<K> details) {
-    if (!details.isAggregate || details.aggregateMembers.isEmpty) {
+  /// Reveals source members of a generated aggregate without retaining geometry.
+  TreemapCommandResult<K> revealAggregate(
+    TreemapKey<K> key, {
+    required Iterable<K> memberKeys,
+  }) {
+    final keys = memberKeys.toSet();
+    final members = keys
+        .map((key) => _tree?.nodes[key])
+        .whereType<TreemapNode<K>>()
+        .toList();
+    final parents = members.map((node) => _tree!.parents[node.key]).toSet();
+    if (!key.isAggregate ||
+        members.isEmpty ||
+        members.length != keys.length ||
+        parents.length != 1 ||
+        parents.single == null) {
       return TreemapCommandResult(
-        TreemapCommandStatus.leafCannotBeFocused,
-        key: details.key,
-        message: 'The target is not an aggregate with members.',
+        TreemapCommandStatus.missingKey,
+        key: key,
+        message: 'An aggregate requires valid sibling source member keys.',
       );
     }
-    final path = [
-      ..._path,
-      TreemapPathEntry(
-        key: details.key,
-        label: details.label,
-        depth: _path.length,
-      ),
-    ];
-    _focus = TreemapFocus.aggregate(
-      key: details.key,
-      members: details.aggregateMembers,
-      path: path,
-    );
-    _path = List.unmodifiable(path);
+    _setAggregateFocus(key, members);
     notifyListeners();
-    return TreemapCommandResult(
-      TreemapCommandStatus.completed,
-      key: details.key,
-    );
+    return TreemapCommandResult(TreemapCommandStatus.completed, key: key);
   }
 
   TreemapCommandResult<K> zoomOut() {
@@ -258,7 +234,12 @@ final class TreemapController<K> extends ChangeNotifier
   }
 
   void setSelection(Iterable<TreemapKey<K>> keys) {
-    final next = LinkedHashSet<TreemapKey<K>>.of(keys);
+    final next = LinkedHashSet<TreemapKey<K>>.of(
+      keys.where(
+        (key) =>
+            !key.isSource || (_tree?.nodes.containsKey(key.sourceKey) ?? false),
+      ),
+    );
     if (maximumSelections != null && next.length > maximumSelections!) {
       next.removeAll(next.take(next.length - maximumSelections!).toList());
     }
@@ -275,29 +256,33 @@ final class TreemapController<K> extends ChangeNotifier
     notifyListeners();
   }
 
-  void setHovered(TreemapKey<K>? key, {Object? color}) {
-    if (_hoveredKey == key && _hoveredColor == color) return;
-    _hoveredKey = key;
-    _hoveredColor = color;
-    notifyListeners();
-  }
+  List<TreemapPathEntry<K>> _sourcePath(K key) => List.unmodifiable(
+    _tree!
+        .pathTo(key)
+        .indexed
+        .map(
+          (entry) => TreemapPathEntry(
+            key: TreemapKey.source(entry.$2.key),
+            label: entry.$2.label,
+            depth: entry.$1,
+          ),
+        ),
+  );
 
-  void zoomToPathEntry(TreemapPathEntry<K> entry) {
-    if (entry.key.isSource) zoomTo(entry.key.sourceKey as K);
+  void _setAggregateFocus(TreemapKey<K> key, List<TreemapNode<K>> members) {
+    // Rebuild source ancestry from the current tree, including changed labels
+    // and depths. A revealed aggregate belongs to its source members' parent,
+    // even when it was activated from a more distant chart focus.
+    final path = _sourcePath(_tree!.parents[members.first.key] as K);
+    _path = List.unmodifiable([
+      ...path,
+      TreemapPathEntry(key: key, depth: path.length),
+    ]);
+    _focus = TreemapFocus.aggregate(key: key, members: members, path: _path);
   }
 
   void _setSourceFocus(TreemapNode<K> node, {bool notify = true}) {
-    final tree = _tree!;
-    final nodes = tree.pathTo(node.key);
-    _path = List.unmodifiable(
-      nodes.indexed.map(
-        (entry) => TreemapPathEntry(
-          key: TreemapKey.source(entry.$2.key),
-          label: entry.$2.label,
-          depth: entry.$1,
-        ),
-      ),
-    );
+    _path = _sourcePath(node.key);
     _focus = TreemapFocus.source(node.key);
     if (notify) notifyListeners();
   }
@@ -314,12 +299,5 @@ final class TreemapController<K> extends ChangeNotifier
       }
     }
     _setSourceFocus(tree.root, notify: false);
-  }
-}
-
-extension<T> on Iterable<T> {
-  T? get firstOrNull {
-    final iterator = this.iterator;
-    return iterator.moveNext() ? iterator.current : null;
   }
 }

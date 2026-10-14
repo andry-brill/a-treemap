@@ -28,4 +28,10 @@ Presets stay grouped in `lib/scenarios/*.dart`. Each `ExamplePreset` supplies it
 
 ## Validation
 
-Run `flutter analyze`, `flutter test`, and `flutter build web` here, plus package analysis/tests at the repository root. Tests cover all 50 presets, configuration/URL round trips, draft validation, browser route restoration, responsive/help UI, interaction/state ownership, and chart goldens. The existing example golden images moved into `test/goldens` without changing their baselines.
+Run `flutter analyze`, `flutter test`, and `flutter build web` here, plus package analysis/tests at the repository root. Tests cover all 51 presets, configuration/URL round trips, draft validation, browser route restoration, responsive/help UI, interaction/state ownership, and chart goldens. The existing example golden images moved into `test/goldens` without changing their baselines.
+
+Prepared source data is retained by the data signature. Styling and layout edits
+reuse it; dataset changes prepare a new immutable tree. The `data-prepared-tree`
+preset shares one tree between two independently interactive charts. Custom
+presentation controls use keyed chart actions, and external views consume the
+same immutable presentation published after the frame.

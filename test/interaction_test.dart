@@ -86,7 +86,7 @@ void main() {
           width: 500,
           height: 300,
           child: TreemapChart<String>(
-            root: _consumerTree(),
+            tree: TreemapNormalizer.normalize(_consumerTree()),
             tiles: testTreemapTiles(),
             controller: controller,
             tooltip: TreemapTooltip(
@@ -98,7 +98,8 @@ void main() {
                 key: const ValueKey('visible-leaf-tooltip'),
               ),
             ),
-            onSnapshot: (value) => snapshot = value,
+            onPresentationChanged: (presentation) =>
+                snapshot = presentation.targetSnapshot!,
           ),
         ),
       ),
@@ -120,7 +121,16 @@ void main() {
             .data,
         leaf.label,
       );
-      expect(controller.hoveredKey, TreemapKey.source(leaf.key));
+      expect(
+        tester
+            .widget<TreemapPresentationScope<String>>(
+              find.byType(TreemapPresentationScope<String>),
+            )
+            .notifier!
+            .value
+            .hoveredKey,
+        TreemapKey.source(leaf.key),
+      );
     }
     await mouse.removePointer();
   });
@@ -136,7 +146,7 @@ void main() {
           width: 420,
           height: 280,
           child: TreemapChart<String>(
-            root: _tree(),
+            tree: TreemapNormalizer.normalize(_tree()),
             tiles: testTreemapTiles(),
             interaction: const TreemapInteractionConfig(zoomOnNodeTap: false),
             tooltip: TreemapTooltip(
@@ -154,7 +164,8 @@ void main() {
                 height: 32,
               ),
             ),
-            onSnapshot: (value) => snapshot = value,
+            onPresentationChanged: (presentation) =>
+                snapshot = presentation.targetSnapshot!,
           ),
         ),
       ),
@@ -186,10 +197,11 @@ void main() {
         width: 420,
         height: 280,
         child: TreemapChart<String>(
-          root: _deepTree(),
+          tree: TreemapNormalizer.normalize(_deepTree()),
           tiles: testTreemapTiles(),
           controller: controller,
-          onSnapshot: (value) => snapshot = value,
+          onPresentationChanged: (presentation) =>
+              snapshot = presentation.targetSnapshot!,
         ),
       ),
     );
@@ -216,13 +228,14 @@ void main() {
         width: 420,
         height: 280,
         child: TreemapChart<String>(
-          root: _deepTree(),
+          tree: TreemapNormalizer.normalize(_deepTree()),
           tiles: testTreemapTiles(),
           controller: controller,
           interaction: TreemapInteractionConfig(
             onNodeTap: (details) => tapped = details.label,
           ),
-          onSnapshot: (value) => snapshot = value,
+          onPresentationChanged: (presentation) =>
+              snapshot = presentation.targetSnapshot!,
         ),
       ),
     );
@@ -247,10 +260,11 @@ void main() {
         width: 420,
         height: 280,
         child: TreemapChart<String>(
-          root: _tree(),
+          tree: TreemapNormalizer.normalize(_tree()),
           tiles: testTreemapTiles(),
           controller: controller,
-          onSnapshot: (value) => snapshot = value,
+          onPresentationChanged: (presentation) =>
+              snapshot = presentation.targetSnapshot!,
         ),
       ),
     );
@@ -285,7 +299,7 @@ void main() {
         width: 420,
         height: 280,
         child: TreemapChart<String>(
-          root: _tree(),
+          tree: TreemapNormalizer.normalize(_tree()),
           tiles: testTreemapTiles(),
           controller: controller,
           interaction: TreemapInteractionConfig(
@@ -303,7 +317,8 @@ void main() {
               key: const ValueKey('tooltip'),
             ),
           ),
-          onSnapshot: (value) => snapshot = value,
+          onPresentationChanged: (presentation) =>
+              snapshot = presentation.targetSnapshot!,
         ),
       ),
     );
@@ -345,7 +360,7 @@ void main() {
           width: 400,
           height: 240,
           child: TreemapChart<String>(
-            root: _tree(),
+            tree: TreemapNormalizer.normalize(_tree()),
             tiles: testTreemapTiles(),
             controller: controller,
             selection: TreemapSelectionConfig(
@@ -356,7 +371,8 @@ void main() {
               zoomOnNodeTap: false,
               onSelectionChanged: (selection, _) => proposed = selection,
             ),
-            onSnapshot: (value) => snapshot = value,
+            onPresentationChanged: (presentation) =>
+                snapshot = presentation.targetSnapshot!,
           ),
         ),
       );
@@ -379,14 +395,15 @@ void main() {
         width: 400,
         height: 240,
         child: TreemapChart<String>(
-          root: _tree(),
+          tree: TreemapNormalizer.normalize(_tree()),
           tiles: testTreemapTiles(),
           interaction: TreemapInteractionConfig(
             longPressDuration: const Duration(milliseconds: 50),
             onHoverChanged: (details) => hovered.add(details?.label),
             onNodeLongPress: (details) => pressed.add(details.label ?? ''),
           ),
-          onSnapshot: (value) => snapshot = value,
+          onPresentationChanged: (presentation) =>
+              snapshot = presentation.targetSnapshot!,
         ),
       ),
     );
@@ -414,7 +431,7 @@ void main() {
         width: 400,
         height: 240,
         child: TreemapChart<String>(
-          root: _tree(),
+          tree: TreemapNormalizer.normalize(_tree()),
           tiles: testTreemapTiles(),
           controller: controller,
           autofocus: true,

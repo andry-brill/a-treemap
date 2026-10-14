@@ -265,6 +265,7 @@ final class TreemapNormalizedTree<K> {
     required Map<K, K?> parents,
     required Map<K, int> depths,
     required Map<K, double> totals,
+    required this.globalColorDomain,
   }) : nodes = UnmodifiableMapView(nodes),
        parents = UnmodifiableMapView(parents),
        depths = UnmodifiableMapView(depths),
@@ -275,6 +276,10 @@ final class TreemapNormalizedTree<K> {
   final Map<K, K?> parents;
   final Map<K, int> depths;
   final Map<K, double> totals;
+
+  /// Finite numeric color extrema beneath the container root. Source colors
+  /// override normalized descendant weights. Prepared once with this tree.
+  final (double, double)? globalColorDomain;
 
   List<TreemapNode<K>> pathTo(K key) {
     if (!nodes.containsKey(key)) return const [];
@@ -385,12 +390,23 @@ abstract final class TreemapNormalizer {
     }
 
     if (issues.isNotEmpty) throw TreemapValidationException<K>(issues);
+    double? minimum;
+    double? maximum;
+    for (final node in nodes.values) {
+      if (node.key == root.key) continue;
+      final input = node.color ?? totals[node.key];
+      if (input is! num || !input.isFinite) continue;
+      final value = input.toDouble();
+      if (minimum == null || value < minimum) minimum = value;
+      if (maximum == null || value > maximum) maximum = value;
+    }
     return TreemapNormalizedTree<K>._(
       root: root,
       nodes: nodes,
       parents: parents,
       depths: depths,
       totals: totals,
+      globalColorDomain: minimum == null ? null : (minimum, maximum!),
     );
   }
 }

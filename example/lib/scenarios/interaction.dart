@@ -60,7 +60,7 @@ final interactionScenarios = <ExamplePreset>[
     title: "Drill-down, controller, breadcrumbs",
     category: "Interaction",
     description:
-        "Drill into Consumer, then use Back or Reset. Breadcrumbs share the navigation controller.",
+        "Drill into Consumer, then use Back or Reset. Breadcrumbs read presentation and send navigation actions.",
     dataKey: "markets",
     overrides: {
       "breadcrumbs.enabled": true,

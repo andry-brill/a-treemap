@@ -138,7 +138,11 @@ TreemapNode<String> createData(PlaygroundConfig config) {
   }
   final input = config.text('color.input');
   if (input == 'source' || config.text('data') == 'invalid-weight') return root;
-  final normalized = TreemapNormalizer.normalize(root);
+  final totals = <String, double>{};
+  double total(TreemapNode<String> node) => totals[node.key] ??= node.isLeaf
+      ? node.weight
+      : node.children.fold<double>(0, (sum, child) => sum + total(child));
+  total(root);
   TreemapNode<String> convert(TreemapNode<String> node, int index) =>
       TreemapNode(
         key: node.key,
@@ -148,7 +152,7 @@ TreemapNode<String> createData(PlaygroundConfig config) {
         semanticLabel: node.semanticLabel,
         data: node.data,
         color: switch (input) {
-          'numeric' => normalized.totals[node.key],
+          'numeric' => totals[node.key],
           'category' => node.key,
           'direct' =>
             hierarchyPalette[node.key] ??
@@ -189,9 +193,12 @@ const generatedPalette = [
   Color(0xFF00897B),
 ];
 
-TreemapColorScale suggestedScale(TreemapNode<String> root, Color fallback) {
+TreemapColorScale suggestedScale(
+  TreemapNormalizedTree<String> tree,
+  Color fallback,
+) {
   final colors = <Object?, Color>{};
-  final totals = TreemapNormalizer.normalize(root).totals;
+  final totals = tree.totals;
   void visit(TreemapNode<String> node, int index) {
     final value = node.color ?? totals[node.key];
     colors[value] =
@@ -202,7 +209,7 @@ TreemapColorScale suggestedScale(TreemapNode<String> root, Color fallback) {
     }
   }
 
-  for (final entry in root.children.indexed) {
+  for (final entry in tree.root.children.indexed) {
     visit(entry.$2, entry.$1);
   }
   return TreemapColorScale.exact(colors, fallback: fallback);

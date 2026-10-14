@@ -2,8 +2,10 @@
 
 `benchmark/layout_benchmark.dart` measures the pure engine independently of
 Flutter frame scheduling. It reports p50, p95, and resident-memory delta for
-flat 100/1,000/10,000-node layouts, a 1,000-node resize sequence, focused zoom,
+separate preparation and reused-tree layout for 100/1,000/10,000 nodes, a 1,000-node resize sequence, focused zoom,
 a 1,000-level hierarchy, and 30-frame keyed animated updates.
+
+Layout, resize and focus runs share prepared immutable trees. Preparation includes validation, indexes, normalized branch totals and global color extrema.
 
 Run locally from the repository root:
 
@@ -17,6 +19,7 @@ claims about a particular device:
 
 | Scenario | p95 budget |
 |---|---:|
+| 100/1,000/10,000-node preparation | 50/250/2,500 ms |
 | 100-node layout | 50 ms |
 | 1,000-node layout | 250 ms |
 | 10,000-node layout | 2,500 ms |

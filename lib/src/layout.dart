@@ -138,6 +138,19 @@ final class TreemapLayoutRule<K> {
       strategy: strategy ?? base.strategy,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is TreemapLayoutRule<K> &&
+      algorithm == other.algorithm &&
+      sort == other.sort &&
+      identical(comparator, other.comparator) &&
+      direction == other.direction &&
+      axisOrder == other.axisOrder &&
+      identical(strategy, other.strategy);
+  @override
+  int get hashCode =>
+      Object.hash(algorithm, sort, comparator, direction, axisOrder, strategy);
 }
 
 /// Contains the complete, non-null layout choices used by the engine.
@@ -215,6 +228,27 @@ final class TreemapLayoutPolicy<K> {
     );
     return resolved;
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is TreemapLayoutPolicy<K> &&
+      rootRule == other.rootRule &&
+      _mapsEqual(byChildDepth, other.byChildDepth) &&
+      _mapsEqual(byParentKey, other.byParentKey) &&
+      identical(resolver, other.resolver) &&
+      inheritResolvedRule == other.inheritResolvedRule;
+  @override
+  int get hashCode => Object.hash(
+    rootRule,
+    Object.hashAllUnordered(
+      byChildDepth.entries.map((e) => Object.hash(e.key, e.value)),
+    ),
+    Object.hashAllUnordered(
+      byParentKey.entries.map((e) => Object.hash(e.key, e.value)),
+    ),
+    resolver,
+    inheritResolvedRule,
+  );
 }
 
 /// Configures geometry, visible depth, minimum-node handling, and rule resolution.
@@ -320,6 +354,33 @@ final class TreemapLayoutConfig<K> {
   }
 
   @override
+  bool operator ==(Object other) =>
+      other is TreemapLayoutConfig<K> &&
+      policy == other.policy &&
+      outerPadding == other.outerPadding &&
+      levelPadding == other.levelPadding &&
+      innerSpacing == other.innerSpacing &&
+      maxVisibleDepth == other.maxVisibleDepth &&
+      minimumWidth == other.minimumWidth &&
+      minimumHeight == other.minimumHeight &&
+      minimumArea == other.minimumArea &&
+      minimumNodePolicy == other.minimumNodePolicy &&
+      insufficientSpacePolicy == other.insufficientSpacePolicy;
+  @override
+  int get hashCode => Object.hash(
+    policy,
+    outerPadding,
+    levelPadding,
+    innerSpacing,
+    maxVisibleDepth,
+    minimumWidth,
+    minimumHeight,
+    minimumArea,
+    minimumNodePolicy,
+    insufficientSpacePolicy,
+  );
+
+  @override
   String toString() =>
       'TreemapLayoutConfig(spacing: $innerSpacing, padding: $outerPadding, '
       'maxVisibleDepth: $maxVisibleDepth, '
@@ -394,7 +455,7 @@ final class TreemapLayoutEngine<K> {
   int _revision = 0;
 
   TreemapGeometrySnapshot<K> layout({
-    required TreemapNode<K> root,
+    required TreemapNormalizedTree<K> tree,
     required TreemapBounds viewport,
     TreemapLayoutConfig<K>? config,
     TreemapFocus<K>? focus,
@@ -407,25 +468,19 @@ final class TreemapLayoutEngine<K> {
         'Viewport coordinates and dimensions must be finite and non-negative.',
       );
     }
-    final tree = TreemapNormalizer.normalize(root);
+    final root = tree.root;
+    final resolvedFocus = _resolveFocus(tree, focus);
     final contentBounds = viewport.inset(effectiveConfig.outerPadding);
     if (contentBounds.isEmpty || tree.totals[root.key] == 0) {
       return TreemapGeometrySnapshot<K>(
         viewport: viewport,
         nodes: const [],
-        path: [
-          TreemapPathEntry(
-            key: TreemapKey.source(root.key),
-            label: root.label,
-            depth: 0,
-          ),
-        ],
-        focusKey: TreemapKey.source(root.key),
+        path: resolvedFocus.path,
+        focusKey: resolvedFocus.key,
         revision: ++_revision,
       );
     }
 
-    final resolvedFocus = _resolveFocus(tree, focus);
     final nodes = <TreemapGeometryNode<K>>[];
     final defaultRule = effectiveConfig.policy.rootRule.resolve();
     final stack = <_LayoutWork<K>>[
@@ -522,7 +577,7 @@ final class TreemapLayoutEngine<K> {
   }
 
   Future<TreemapGeometrySnapshot<K>> layoutAsync({
-    required TreemapNode<K> root,
+    required TreemapNormalizedTree<K> tree,
     required TreemapBounds viewport,
     TreemapLayoutConfig<K>? config,
     TreemapFocus<K>? focus,
@@ -532,7 +587,7 @@ final class TreemapLayoutEngine<K> {
     try {
       return await Isolate.run(
         () => TreemapLayoutEngine<K>().layout(
-          root: root,
+          tree: tree,
           viewport: viewport,
           config: config,
           focus: focus,
@@ -542,7 +597,7 @@ final class TreemapLayoutEngine<K> {
     } on Object {
       if (!fallbackToSynchronous) rethrow;
       return layout(
-        root: root,
+        tree: tree,
         viewport: viewport,
         config: config,
         focus: focus,
@@ -1100,3 +1155,9 @@ final class _ResolvedFocus<K> {
   final int childDepth;
   final List<TreemapPathEntry<K>> path;
 }
+
+bool _mapsEqual<K, V>(Map<K, V> a, Map<K, V> b) =>
+    a.length == b.length &&
+    a.entries.every(
+      (entry) => b.containsKey(entry.key) && b[entry.key] == entry.value,
+    );

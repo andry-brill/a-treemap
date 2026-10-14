@@ -33,7 +33,7 @@ TreemapNode<String> _tree() => TreemapNode(
 void main() {
   test('custom strategy substitutes behind the public invariant contract', () {
     final snapshot = TreemapLayoutEngine<String>().layout(
-      root: _tree(),
+      tree: TreemapNormalizer.normalize(_tree()),
       viewport: const TreemapBounds.fromLTWH(0, 0, 200, 100),
       config: TreemapLayoutConfig(
         policy: TreemapLayoutPolicy(
@@ -48,11 +48,11 @@ void main() {
   test('optional isolate layout preserves keys and geometry', () async {
     final engine = TreemapLayoutEngine<String>();
     final synchronous = engine.layout(
-      root: _tree(),
+      tree: TreemapNormalizer.normalize(_tree()),
       viewport: const TreemapBounds.fromLTWH(0, 0, 200, 100),
     );
     final isolated = await engine.layoutAsync(
-      root: _tree(),
+      tree: TreemapNormalizer.normalize(_tree()),
       viewport: const TreemapBounds.fromLTWH(0, 0, 200, 100),
       fallbackToSynchronous: false,
     );
@@ -72,25 +72,27 @@ void main() {
     TreemapGeometrySnapshot<String>? snapshot;
     await tester.pumpTreemapApp(
       TreemapChart<String>(
-        root:
-            TreemapNode.fromRecords<
-              ({String region, String item, double value}),
-              String
-            >(
-              rootKey: 'root',
-              records: records,
-              leafKey: (record) => record.item,
-              weight: (record) => record.value,
-              levels: [
-                TreemapRecordLevel(
-                  key: (record) => 'region:${record.region}',
-                  label: (record) => record.region,
-                ),
-              ],
-            ),
+        tree: TreemapNormalizer.normalize(
+          TreemapNode.fromRecords<
+            ({String region, String item, double value}),
+            String
+          >(
+            rootKey: 'root',
+            records: records,
+            leafKey: (record) => record.item,
+            weight: (record) => record.value,
+            levels: [
+              TreemapRecordLevel(
+                key: (record) => 'region:${record.region}',
+                label: (record) => record.region,
+              ),
+            ],
+          ),
+        ),
         tiles: testTreemapTiles(),
         labels: testTreemapLabels(),
-        onSnapshot: (value) => snapshot = value,
+        onPresentationChanged: (presentation) =>
+            snapshot = presentation.targetSnapshot!,
       ),
     );
     expect(snapshot!.nodes, hasLength(4));

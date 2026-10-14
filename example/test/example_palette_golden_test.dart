@@ -26,7 +26,7 @@ void main() {
       RepaintBoundary(
         key: const ValueKey('example-palette'),
         child: TreemapChart<String>(
-          root: sampleTree(),
+          tree: TreemapNormalizer.normalize(sampleTree()),
           tiles: TreemapTiles(
             appearance: TreemapAppearanceResolver(
               colorScale: sampleHierarchyColorScale,
@@ -57,7 +57,7 @@ void main() {
       RepaintBoundary(
         key: const ValueKey('example-palette'),
         child: TreemapChart<String>(
-          root: sampleTree(),
+          tree: TreemapNormalizer.normalize(sampleTree()),
           tiles: TreemapTiles(appearance: appearance),
           labels: TreemapCanvasLabels(
             appearance: appearance,

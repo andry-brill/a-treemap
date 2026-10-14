@@ -50,7 +50,7 @@ Future<void> _pumpLabelFreeGolden(
 
 Widget _labelFreeChart(TreemapLayoutConfig<String> layout) =>
     TreemapChart<String>(
-      root: sampleTree(),
+      tree: TreemapNormalizer.normalize(sampleTree()),
       tiles: sampleTiles(),
       layout: layout,
       transition: const TreemapTransitionSpec(

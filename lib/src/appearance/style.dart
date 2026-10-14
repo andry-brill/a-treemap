@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../controller.dart';
-import '../presentation/context.dart';
+import '../presentation/state.dart';
 
 /// Describes the paint and text styling for one tile state.
 final class TreemapAppearance {

@@ -1336,6 +1336,7 @@ List<PlaygroundProperty> propertyDefinitions() {
     'chart',
     [
       'chart',
+      'sharedTree',
       'originsComparison',
       'axesComparison',
       'categoryCard',

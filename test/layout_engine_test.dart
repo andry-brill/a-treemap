@@ -56,7 +56,7 @@ void main() {
   for (final algorithm in algorithms) {
     test('$algorithm satisfies geometry invariants', () {
       final snapshot = TreemapLayoutEngine<String>().layout(
-        root: _flat([9, 7, 5, 3, 2, 1]),
+        tree: TreemapNormalizer.normalize(_flat([9, 7, 5, 3, 2, 1])),
         viewport: const TreemapBounds.fromLTWH(.25, .5, 401.5, 239.25),
         config: _config(algorithm),
       );
@@ -73,12 +73,12 @@ void main() {
   test('slice and dice preserve exact proportional flow', () {
     final engine = TreemapLayoutEngine<String>();
     final slice = engine.layout(
-      root: _flat([1, 3]),
+      tree: TreemapNormalizer.normalize(_flat([1, 3])),
       viewport: const TreemapBounds.fromLTWH(0, 0, 100, 80),
       config: _config(TreemapLayoutAlgorithm.slice),
     );
     final dice = engine.layout(
-      root: _flat([1, 3]),
+      tree: TreemapNormalizer.normalize(_flat([1, 3])),
       viewport: const TreemapBounds.fromLTWH(0, 0, 100, 80),
       config: _config(TreemapLayoutAlgorithm.dice),
     );
@@ -88,7 +88,7 @@ void main() {
 
   test('layout preserves device-independent fractional coordinates', () {
     final snapshot = TreemapLayoutEngine<String>().layout(
-      root: _flat([1, 2]),
+      tree: TreemapNormalizer.normalize(_flat([1, 2])),
       viewport: const TreemapBounds.fromLTWH(0, 0, 100, 80),
       config: _config(TreemapLayoutAlgorithm.dice),
     );
@@ -99,7 +99,7 @@ void main() {
   test('all four origins mirror stable source geometry', () {
     TreemapGeometrySnapshot<String> run(TreemapLayoutDirection direction) =>
         TreemapLayoutEngine<String>().layout(
-          root: _flat([1, 3]),
+          tree: TreemapNormalizer.normalize(_flat([1, 3])),
           viewport: const TreemapBounds.fromLTWH(10, 20, 100, 80),
           config: _config(TreemapLayoutAlgorithm.dice, direction: direction),
         );
@@ -117,7 +117,7 @@ void main() {
   test('binary axis order chooses the first split for square bounds', () {
     TreemapGeometrySnapshot<String> run(TreemapAxisOrder axis) =>
         TreemapLayoutEngine<String>().layout(
-          root: _flat([5, 3, 2]),
+          tree: TreemapNormalizer.normalize(_flat([5, 3, 2])),
           viewport: const TreemapBounds.fromLTWH(0, 0, 100, 100),
           config: _config(TreemapLayoutAlgorithm.binaryByWeight, axis: axis),
         );
@@ -135,13 +135,15 @@ void main() {
   test('sort policies are deterministic and key-tied', () {
     List<String?> keys(TreemapSortPolicy sort) => TreemapLayoutEngine<String>()
         .layout(
-          root: TreemapNode(
-            key: 'root',
-            children: [
-              TreemapNode(key: 'z', weight: 2),
-              TreemapNode(key: 'a', weight: 1),
-              TreemapNode(key: 'b', weight: 2),
-            ],
+          tree: TreemapNormalizer.normalize(
+            TreemapNode(
+              key: 'root',
+              children: [
+                TreemapNode(key: 'z', weight: 2),
+                TreemapNode(key: 'a', weight: 1),
+                TreemapNode(key: 'b', weight: 2),
+              ],
+            ),
           ),
           viewport: const TreemapBounds.fromLTWH(0, 0, 100, 100),
           config: _config(TreemapLayoutAlgorithm.slice, sort: sort),
@@ -168,7 +170,7 @@ void main() {
       ],
     );
     final snapshot = TreemapLayoutEngine<String>().layout(
-      root: root,
+      tree: TreemapNormalizer.normalize(root),
       viewport: const TreemapBounds.fromLTWH(0, 0, 100, 100),
       config: TreemapLayoutConfig(
         policy: TreemapLayoutPolicy(
@@ -196,7 +198,7 @@ void main() {
     final engine = TreemapLayoutEngine<String>();
     final root = _flat([100, 1, 1, 1]);
     TreemapGeometrySnapshot<String> run(double width) => engine.layout(
-      root: root,
+      tree: TreemapNormalizer.normalize(root),
       viewport: TreemapBounds.fromLTWH(0, 0, width, 100),
       config: TreemapLayoutConfig(
         minimumWidth: 20,
@@ -217,7 +219,7 @@ void main() {
 
   test('outer padding and symmetric spacing stay bounded', () {
     final snapshot = TreemapLayoutEngine<String>().layout(
-      root: _flat([1, 1, 1, 1]),
+      tree: TreemapNormalizer.normalize(_flat([1, 1, 1, 1])),
       viewport: const TreemapBounds.fromLTWH(0, 0, 100, 100),
       config: TreemapLayoutConfig(
         outerPadding: const TreemapInsets.fromLTRB(10, 5, 20, 15),
@@ -249,7 +251,7 @@ void main() {
       .45,
     ]);
     final snapshot = TreemapLayoutEngine<String>().layout(
-      root: root,
+      tree: TreemapNormalizer.normalize(root),
       viewport: const TreemapBounds.fromLTWH(16, 16, 408, 488),
       config: TreemapLayoutConfig(
         innerSpacing: 16,
@@ -277,7 +279,7 @@ void main() {
       ];
       for (final algorithm in algorithms) {
         final snapshot = TreemapLayoutEngine<String>().layout(
-          root: _flat(weights),
+          tree: TreemapNormalizer.normalize(_flat(weights)),
           viewport: TreemapBounds.fromLTWH(
             0,
             0,
@@ -294,16 +296,18 @@ void main() {
   test('keyed transition handles reorder, enter and exit', () {
     final engine = TreemapLayoutEngine<String>();
     final a = engine.layout(
-      root: _flat([1, 2]),
+      tree: TreemapNormalizer.normalize(_flat([1, 2])),
       viewport: const TreemapBounds.fromLTWH(0, 0, 100, 100),
     );
     final b = engine.layout(
-      root: TreemapNode(
-        key: 'root',
-        children: [
-          TreemapNode(key: 'n1', weight: 2),
-          TreemapNode(key: 'new', weight: 3),
-        ],
+      tree: TreemapNormalizer.normalize(
+        TreemapNode(
+          key: 'root',
+          children: [
+            TreemapNode(key: 'n1', weight: 2),
+            TreemapNode(key: 'new', weight: 3),
+          ],
+        ),
       ),
       viewport: const TreemapBounds.fromLTWH(0, 0, 100, 100),
     );

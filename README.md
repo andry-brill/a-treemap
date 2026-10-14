@@ -33,7 +33,7 @@ flutter pub get
 flutter run -d chrome
 ```
 
-The **Example** chooser loads one of 50 named presets. **Data** selects a shared dataset, and the property panel controls layout, colors, visual layers, interaction, accessibility, animation, and preview dimensions. Property info buttons explain each setting. On narrow screens, open **Properties** from the toolbar.
+The **Example** chooser loads one of 51 named presets. **Data** selects a shared dataset, and the property panel controls layout, colors, visual layers, interaction, accessibility, animation, and preview dimensions. Property info buttons explain each setting. On narrow screens, open **Properties** from the toolbar.
 
 Preset links contain only an example key, such as `?example=appearance-auto-visible`. Editing any property switches to **Custom** and puts the complete configuration, including `data`, in the URL. **Copy link** includes valid pending edits. Browser Back/Forward restores committed changes; navigation, current selection, hover, and tooltips remain temporary.
 
@@ -43,7 +43,7 @@ See [the playground guide](example/README.md) for URL behavior and extension poi
 
 ## Quick start
 
-A chart always needs a hierarchy and a tile layer. Colors are explicit: the package does not silently choose a palette or fallback color.
+A chart always needs a prepared hierarchy and a tile layer. Prepare it once when data changes and reuse it across builds. Colors are explicit: the package does not silently choose a palette or fallback color.
 
 ```dart
 import 'package:any_treemap/any_treemap.dart';
@@ -83,6 +83,7 @@ final scale = TreemapColorScale.exact(
   fallback: const Color(0xFF607D8B),
 );
 
+final tree = TreemapNormalizer.normalize(root);
 final appearance = TreemapAppearanceResolver<String>(colorScale: scale);
 
 class ProductTreemap extends StatelessWidget {
@@ -94,7 +95,7 @@ class ProductTreemap extends StatelessWidget {
       width: 640,
       height: 400,
       child: TreemapChart<String>(
-        root: root,
+        tree: tree,
         tiles: TreemapTiles(appearance: appearance),
         labels: TreemapCanvasLabels(appearance: appearance),
         tooltip: TreemapTooltip(
@@ -121,10 +122,29 @@ The rendering pipeline has four separate responsibilities:
 
 1. `TreemapNode<K>` describes caller-owned data. `TreemapNormalizer` validates it and derives branch totals.
 2. `TreemapLayoutEngine<K>` turns the hierarchy into a `TreemapGeometrySnapshot<K>` for a viewport and focus.
-3. `TreemapChart<K>` computes layouts and owns immutable `TreemapPresentationState<K>` containing destination/displayed snapshots and color domains. The controller owns navigation and interaction only.
+3. `TreemapChart<K>` computes layouts and owns immutable `TreemapPresentationState<K>` containing destination/displayed snapshots and color domains. The controller owns navigation and uncontrolled selection; the chart owns transient interaction.
 4. Replaceable layers read `visual.presentation`; surrounding chrome reads `TreemapPresentationScope`. Presentation updates flow to consumers without writing layouts back to the controller.
 
 This separation lets an application replace labels without reimplementing navigation, use the layout engine without constructing widgets, or change colors without changing geometry.
+
+```mermaid
+flowchart TD
+    Source["Source hierarchy<br/>TreemapNode"] --> Prepare["Validation and indexing<br/>TreemapNormalizer.normalize"]
+    Prepare --> Tree["Prepared source and global extrema<br/>TreemapNormalizedTree"]
+    Tree --> Controller["Navigation and uncontrolled selection<br/>TreemapController · TreemapFocus"]
+    Tree --> Coordinator["Chart update pipeline<br/>TreemapChart · TreemapChartCoordinator (internal)"]
+    Controller --> Coordinator
+    Inputs["Configuration, viewport and transient commands<br/>TreemapLayoutConfig · TreemapInteractionConfig<br/>TreemapSelectionConfig · TreemapActions"] --> Coordinator
+    Coordinator --> Target["Target layout and visible domain<br/>TreemapLayoutEngine · TreemapGeometrySnapshot"]
+    Target --> Frame["Interaction reconciliation and displayed frame<br/>TreemapGeometryTransition · TreemapPresentationProjector (internal)"]
+    Frame --> Presentation["Immutable output<br/>TreemapPresentationState"]
+    Presentation --> Visual["Rendering context and shared appearances<br/>TreemapVisualContext · TreemapAppearanceResolver"]
+    Visual --> Views["Visual and surrounding layers<br/>TreemapTiles · TreemapCanvasLabels · TreemapTooltip<br/>TreemapSemantics · TreemapLegendView · TreemapBreadcrumbsView"]
+    Presentation --> Observers["Published output<br/>TreemapPresentationScope · onPresentationChanged"]
+    Commands["Navigation and selection commands<br/>TreemapActions · TreemapController"] --> Controller
+```
+
+Source binding updates the controller's navigation and selection inputs. Computed layout, color domains and transient interaction stay downstream; commands start the next update through their owning handler.
 
 ## Data model
 
@@ -211,10 +231,11 @@ Normalization checks all nodes in one traversal, calculates descendant totals af
 - `nodes` - unmodifiable source-key-to-node index.
 - `parents` - unmodifiable source-key-to-parent-key index; the root maps to null.
 - `depths` - unmodifiable absolute source depth for every node.
+- `globalColorDomain` - cached finite numeric extrema beneath the container root, using source colors or normalized weights.
 - `totals` - unmodifiable effective-weight index; branch values are descendant sums.
 - `pathTo(key)` - returns the immutable root-to-node source path, or an empty list when the key is absent.
 
-`TreemapChart` and `TreemapLayoutEngine` normalize automatically. Use this class directly for validation, preprocessing, tests, or headless integrations.
+Prepare with this class once when source data changes. Pass the resulting tree to charts, controllers, layout engines and standalone presentation; these consumers never normalize it again.
 
 **`TreemapValidationIssue<K>`** - one actionable problem discovered while normalizing source data.
 
@@ -235,7 +256,7 @@ Catch this exception when records are user-generated and validation failures sho
 
 **`TreemapChart<K>`** - orchestration widget that connects immutable data, layout, controller state, input, animation, and replaceable presentation layers.
 
-- `root` - required already-constructed hierarchy.
+- `tree` - required `TreemapNormalizedTree<K>`, prepared with `TreemapNormalizer.normalize(root)`.
 - `tiles` - required complete tile-surface implementation; use `TreemapNoopTileLayer` for an intentionally invisible host.
 - `controller` - optional externally owned controller. The chart creates and disposes an internal controller when omitted.
 - `layout` - geometry configuration; defaults to a visual-neutral `TreemapLayoutConfig`.
@@ -248,10 +269,9 @@ Catch this exception when records are user-generated and validation failures sho
 - `transition` - optional keyed geometry animation; null applies updates immediately.
 - `clipBehavior` - clipping for the chart stack; defaults to `Clip.none`.
 - `autofocus` - whether the chart initially requests keyboard focus; defaults to false.
-- `onSnapshot` - optional callback invoked when target geometry changes.
 - `onPresentationChanged` - optional callback with immutable presentation output after the frame, including color-only changes and animation frames. Use it to update external legends or observers; keep source data stable unless it actually changes.
 
-The chart requires finite width and height, caches recent layouts, hit-tests the deepest visible block, and synchronizes controller state when `root` changes. The surrounding layer wraps the bounded viewport exactly once; tile, label, semantics, and tooltip layers share its geometry.
+The chart requires finite width and height, caches recent layouts, hit-tests the deepest visible block, and binds navigation and selection when `tree` changes. The surrounding layer wraps the bounded viewport exactly once; tile, label, semantics, and tooltip layers share its geometry.
 
 **`TreemapTransitionSpec`** - opt-in duration and curve for keyed chart geometry animation.
 
@@ -404,17 +424,17 @@ Custom strategies should use `key` rather than assuming every item has a source 
 
 **`TreemapLayoutEngine<K>.layout`** - synchronous, deterministic conversion from hierarchy data to immutable geometry.
 
-- `root` - required source hierarchy.
+- `tree` - required prepared source hierarchy.
 - `viewport` - required finite, non-negative output bounds.
 - `config` - optional geometry configuration.
 - `focus` - optional source branch or aggregate members to use as the viewport root.
 - `previous` - optional prior snapshot used by topology-stable layout and transitions.
 
-The method normalizes input, validates configuration, traverses branches iteratively, validates its output geometry, and throws typed validation or layout exceptions on invalid input.
+The method reads the prepared indexes, validates configuration, traverses branches iteratively, validates its output geometry, and throws typed validation or layout exceptions on invalid input.
 
 **`TreemapLayoutEngine<K>.layoutAsync`** - isolate-backed version of `layout` for large sendable inputs.
 
-- `root` - required isolate-sendable hierarchy.
+- `tree` - required isolate-sendable prepared hierarchy.
 - `viewport` - required output bounds.
 - `config` - optional isolate-sendable configuration.
 - `focus` - optional focus.
@@ -425,7 +445,7 @@ Keys, payloads, callbacks, strategies, and configuration captured by the request
 
 ```dart
 final snapshot = await TreemapLayoutEngine<String>().layoutAsync(
-  root: root,
+  tree: tree,
   viewport: const TreemapBounds.fromLTWH(0, 0, 1200, 800),
   config: layout,
 );
@@ -554,7 +574,7 @@ Surviving keys interpolate their rectangles and opacity. Entering or exiting key
 **`TreemapTileLayer<K>.build(context, visual)`** - required contract for rendering the complete tile surface.
 
 - `context` - Flutter build context for inherited theme, locale, and application state.
-- `visual` - immutable snapshot, details, states, selection, controller, and callbacks.
+- `visual` - immutable presentation, keyed actions and inherited environment.
 - return value - widget filling the chart viewport.
 
 A tile layer may render source ancestors as well as deepest blocks. `TreemapChart` requires this contract but does not require a particular painter.
@@ -584,58 +604,48 @@ Canvas paint does not create Flutter semantics automatically. Supply this layer 
 
 The chart identifies and tracks the target; the layer decides how it is represented.
 
-**`TreemapSurroundingLayer<K>.wrap(context, treemap, controller)`** - optional chart contract for composing chrome around the bounded viewport.
+**`TreemapSurroundingLayer<K>.wrap(context, treemap, visual)`** - optional chart contract for composing chrome around the bounded viewport.
 
 - `context` - Flutter build context.
 - `treemap` - already-built chart viewport.
-- `controller` - active chart controller.
+- `visual` - shared presentation, keyed actions and inherited environment.
 - return value - widget containing the viewport and surrounding content.
 
 The chart applies one surrounding layer. Breadcrumbs and legends implement this contract for direct one-sided placement, while `TreemapSurroundingGrid` combines multiple pieces of content under one layer.
 
-**`TreemapSurroundingContent<K>.build(context, controller)`** - content contract for one grid cell.
+**`TreemapSurroundingContent<K>.build(context, visual)`** - content contract for one grid cell.
 
 - `TreemapSurroundingContent<K>.widget(child: ...)` adapts a static widget.
 - `TreemapSurroundingContent<K>.builder(builder: ...)` adapts a
-  `TreemapSurroundingContentBuilder<K>` callback that receives the active
-  controller.
+  `TreemapSurroundingContentBuilder<K>` callback that receives the shared
+  visual context.
 - `TreemapBreadcrumbs<K>` and `TreemapLegend<K>` implement both the content and layer contracts.
 
-Custom content therefore receives the same active controller without implementing viewport composition itself.
+Custom content receives the same presentation and actions without implementing viewport composition itself.
 
-**`TreemapVisualContext<K>`** - immutable state shared by every in-viewport presentation layer.
+**`TreemapVisualContext<K>`** carries the read-only presentation, keyed `actions`, `textDirection` and `textScaler` shared by visual implementations. `resolveAppearances(context, resolver)` reuses the same appearance results for tile and label layers within a frame.
 
-- `snapshot` - geometry for the current animation frame.
-- `presentation` - required chart-owned immutable state, including the target snapshot and color domain resolver.
-- `details` - unmodifiable node-details map keyed by `TreemapKey<K>`.
-- `states` - unmodifiable hover, selection, keyboard-focus, and disabled-state sets per key.
-- `controller` - active chart controller.
-- `selection` - effective controlled or uncontrolled selection.
-- `textDirection` - inherited Flutter text direction.
-- `textScaler` - inherited text scaling policy.
-- `isAnimating` - whether this frame is between target geometries.
-- `onActivate` - callback a custom layer can use to invoke standard activation.
-- `onFocus` - callback a custom layer can use to update keyboard target state.
-- `visibleLeafNodes` - deepest visible blocks suitable for labels and semantics.
+**`TreemapPresentationState<K>`** is the immutable output consumed by every layer and surrounding view:
 
-Custom layers should consume `statesFor(key)` instead of maintaining duplicate pointer or selection state.
+- `targetSnapshot` is the destination layout, null before the first layout; `displayedSnapshot` is the painted frame and may include outgoing nodes.
+- `focusKey`, `currentPath`, `canZoomOut` and `selectedEntries` describe effective navigation and selection.
+- `hoveredKey`, `hoveredColor`, `keyboardFocusedKey` and `tooltipKey` describe valid target interaction. Hover colors use source input or normalized weight. Hidden targets are cleared and do not reappear without a new interaction.
+- `details`, `targetDetails`, `states`, `statesFor(key)` and `visibleLeafNodes` provide cached geometry-derived presentation. `isAnimating` and `interactionEnabled` describe current behavior.
+- `resolveColorScale(scale)` uses cached global or visible extrema; explicit/custom scales pass through unchanged.
+- `TreemapPresentationState.fromData(tree: ..., targetSnapshot: ...)` uses the same projection outside a chart. Optional selected entries, hover/focus/tooltip keys, displayed snapshot and interaction/animation flags support custom hosts.
 
-**`TreemapPresentationState<K>`** - immutable computed chart output.
+The prepared tree caches global extrema. The chart computes visible extrema only when its target changes; animation frames reuse the destination domain. Scales, prepared trees and previously delivered presentation values remain unchanged.
 
-- `targetSnapshot` - destination layout, or null before the first layout.
-- `displayedSnapshot` - current animation frame; may include outgoing nodes.
-- `hoveredKey` and `hoveredColor` - interaction identity and its effective input from the destination snapshot. Hidden nodes have no hover color; missing source colors use effective weights.
-- `resolveColorScale(scale)` - resolves automatic bounds from cached global or visible extrema. Explicit/custom scales pass through unchanged.
-- `TreemapPresentationState.fromData(root: ..., targetSnapshot: ..., hoveredKey: ...)` - constructs standalone presentation data. Only `root` is required; visible bounds and hovered values require a target snapshot.
+**`TreemapActions<K>`** exposes `activate(key, {zoomOutRequested})`, `hover(key)`, `focus(key)`, `select(key, {toggle})`, `setSelection(keys)`, `clearSelection()`, `zoomTo(sourceKey)`, `zoomOut()`, `reset()` and `revealAggregate(key)`. Keys resolve against the current source/target when commands execute. The interface exposes no mutable state or notifier.
 
-The chart computes global extrema when source data changes and visible extrema when its destination layout changes. Animation frames reuse the destination domain. Supplied scales and previously delivered presentation states remain unchanged.
+**`TreemapPresentationScope.of<K>(context)`** subscribes to the nearest chart's immutable output; `maybeOf` returns null outside a scope. `actionsOf<K>(context)` obtains that chart's actions, and `maybeActionsOf` returns null when unavailable. Scope consumers and `onPresentationChanged` receive output after the frame. In-viewport layers use `visual.presentation` immediately.
 
-**`TreemapPresentationScope.of<K>(context)`** reads the nearest chart's state and subscribes that consumer to changes; `maybeOf<K>(context)` returns null outside a scope. Surrounding content can read this scope through its builder context. In-viewport layers use `visual.presentation` directly. The scope publishes after the frame, and does not notify the navigation controller or rerun chart computation.
+Only source binding changes controller state during chart updates. Layout, domains, hover, keyboard focus, tooltip timers and animation belong to the chart coordinator. Visuals read presentation; actions enter the next update as commands.
 
 For an external legend, store the chart's output in a `ValueNotifier` and rebuild just the consumer:
 
 ```dart
-final output = ValueNotifier(TreemapPresentationState.fromData(root: root));
+final output = ValueNotifier(TreemapPresentationState.fromData(tree: tree));
 
 // On the chart:
 // onPresentationChanged: (state) => output.value = state,
@@ -651,7 +661,6 @@ ValueListenableBuilder<TreemapPresentationState<String>>(
 // Dispose output with its owning widget.
 ```
 
-**Migrating to 2.0.0:** replace `controller.resolveColorScale(scale)` with `visual.presentation.resolveColorScale(scale)` in custom layers, or `TreemapPresentationScope.of<K>(context).resolveColorScale(scale)` in surrounding content. Remove calls to `controller.synchronizeLayout`; custom hosts can create `TreemapPresentationState.fromData` from their own source and target snapshot. Manual `TreemapVisualContext` construction now requires `presentation`. Standalone automatic legends receive `presentation` or an explicitly resolved scale; their controller is used only for interaction when no presentation is supplied.
 
 **`TreemapTooltipContext<K>`** - current tooltip target plus the complete shared visual context.
 
@@ -831,7 +840,7 @@ final scale = TreemapColorScale.interpolated(
 final appearance = TreemapAppearanceResolver<String>(colorScale: scale);
 
 TreemapChart<String>(
-  root: root,
+  tree: tree,
   layout: const TreemapLayoutConfig(maxVisibleDepth: 1),
   tiles: TreemapTiles(appearance: appearance),
   labels: TreemapCanvasLabels(appearance: appearance),
@@ -963,7 +972,7 @@ Set<TreemapKey<String>> selected = {
 };
 
 TreemapChart<String>(
-  root: root,
+  tree: tree,
   tiles: TreemapTiles(appearance: appearance),
   selection: TreemapSelectionConfig(selected: selected),
   interaction: TreemapInteractionConfig(
@@ -976,7 +985,7 @@ TreemapChart<String>(
 )
 ```
 
-**`TreemapController<K>`** - observable owner of drill-down focus, navigation path, hover, and uncontrolled selection.
+**`TreemapController<K>`** - observable owner of drill-down focus, navigation path and uncontrolled selection against a prepared tree.
 
 - `maximumSelections` - maximum programmatic selection count; defaults to `1`. Use null for no limit.
 - `focusKey` - current source or aggregate focus identity.
@@ -984,20 +993,17 @@ TreemapChart<String>(
 - `canZoomOut` - whether the current path has an ancestor.
 - `selectedEntries` - immutable source and aggregate selection identities.
 - `selectedKeys` - source-domain keys only; generated aggregate selections are excluded.
-- `hoveredKey` - current source or aggregate hover identity.
-- `hoveredColor` - input supplied with the last hover interaction, refreshed for surviving source nodes on source updates. For layout-aware values (including generated aggregates and hidden nodes), use `presentation.hoveredColor`.
-- `synchronize(root, {notify})` - updates navigation and interaction against source data; notifies listeners by default. The chart suppresses notification while synchronizing its input during build. This method does not compute color domains.
+- `synchronize(tree, {notify})` - binds a prepared tree and reconciles navigation and uncontrolled selection; notifies by default. The chart suppresses notifications during input binding. It performs no normalization or presentation computation.
 - `zoomTo(key)` - focuses a source branch.
-- `zoomIn([key])` - focuses an explicit key or the hovered/selected source node.
 - `zoomOut()` - focuses the previous path entry.
 - `reset()` - focuses the source root.
-- `revealAggregate(details)` - focuses the source members represented by aggregate geometry.
+- `revealAggregate(key, memberKeys: ...)` - focuses the source members represented by aggregate geometry.
 - `select(key, {toggle})` - selects a source-domain key.
 - `selectEntry(key, {toggle})` - selects a source or aggregate identity.
 - `setSelection(keys)` - replaces uncontrolled selection while enforcing `maximumSelections`.
 - `clearSelection()` - removes uncontrolled selection.
 
-Supply a controller when toolbars, breadcrumbs, legends, or sibling widgets need to observe or command the chart. Dispose a controller your widget creates; `TreemapChart` disposes only its own internal controller. On data updates, `synchronize` removes vanished selections and hover, preserves surviving focus, and falls back to the nearest surviving ancestor.
+Supply a controller for application navigation and uncontrolled selection. Legends and breadcrumbs render presentation; custom chart content uses actions. Dispose a controller your widget creates; `TreemapChart` disposes only its own internal controller. On data updates, `synchronize` removes vanished selections, preserves surviving focus, and falls back to the nearest surviving ancestor.
 
 ```dart
 class _DashboardState extends State<Dashboard> {
@@ -1030,7 +1036,7 @@ class _DashboardState extends State<Dashboard> {
         ),
         Expanded(
           child: TreemapChart<String>(
-            root: root,
+            tree: tree,
             controller: controller,
             tiles: TreemapTiles(appearance: appearance),
             surrounding: const TreemapBreadcrumbs(),
@@ -1100,7 +1106,7 @@ Configure this widget from `TreemapTooltipConfig.containerBuilder` when only the
 - `rowGap`, `columnGap` - nonnegative gaps between rows and cells; default to zero.
 - `clipBehavior` - grid painting clip; defaults to `Clip.none`.
 
-Slots accept `TreemapSurroundingContent<K>`, so built-in breadcrumbs and legends can be used directly. Use `TreemapSurroundingContent.widget` for an ordinary widget or `TreemapSurroundingContent.builder` when content needs the active chart controller.
+Slots accept `TreemapSurroundingContent<K>`, so built-in breadcrumbs and legends can be used directly. Use `TreemapSurroundingContent.widget` for an ordinary widget or `TreemapSurroundingContent.builder` when content needs chart presentation and actions.
 
 **`TreemapSurroundingGrid.fromMap(content)`** - dynamic alternative to the named-slot constructor. The map associates `TreemapOverlayPosition` values with surrounding content and is read immediately rather than retained. Optional padding, gaps, and clipping have the same defaults as the named constructor.
 
@@ -1112,18 +1118,19 @@ Start and end resolve through ambient `Directionality`: they map to left and rig
 
 ## Breadcrumbs
 
-**`TreemapBreadcrumbs<K>`** - controller-driven surrounding content that can also place navigation breadcrumbs directly on one side of the chart.
+**`TreemapBreadcrumbs<K>`** - presentation-driven surrounding content that can also place navigation breadcrumbs directly on one side of the chart.
 
 - `config` - placement, overflow, builders, and wrapper configuration; defaults to `TreemapBreadcrumbsConfig<K>()`.
 
-It implements both `TreemapSurroundingContent<K>` and `TreemapSurroundingLayer<K>` and creates `TreemapBreadcrumbsView<K>` with the chart's active controller. `config.position` controls direct layer placement; a `TreemapSurroundingGrid` slot controls placement when the breadcrumb is grid content.
+It implements both `TreemapSurroundingContent<K>` and `TreemapSurroundingLayer<K>` and creates `TreemapBreadcrumbsView<K>` with the chart's presentation and navigation actions. `config.position` controls direct layer placement; a `TreemapSurroundingGrid` slot controls placement when the breadcrumb is grid content.
 
-**`TreemapBreadcrumbsView<K>`** - standalone breadcrumb widget that observes controller focus and builds actionable ancestors.
+**`TreemapBreadcrumbsView<K>`** - standalone breadcrumb widget that reads presentation and builds actionable ancestors.
 
-- `controller` - required navigation controller to observe and command.
+- `presentation` - optional immutable output; otherwise reads the nearest scope.
+- `onNavigate` - optional callback for ancestor activation. Without it, breadcrumbs are read-only.
 - `config` - breadcrumb construction and overflow policy.
 
-The current item has no navigation action. Ancestor items call `zoomToPathEntry`, while generated aggregate paths retain their current navigation semantics.
+The current item has no navigation action. Ancestor items invoke `onNavigate`; built-in chart breadcrumbs send source-key navigation through chart actions. Generated aggregate entries retain their existing navigation semantics.
 
 **`TreemapBreadcrumbsConfig<K>`** - complete construction and overflow policy for a breadcrumb row.
 
@@ -1177,9 +1184,8 @@ It implements both surrounding contracts and creates `TreemapLegendView<K>`, whi
 - `scale` - required color scale.
 - `config` - required legend structure and builders.
 - `presentation` - optional immutable chart output, normally obtained through `onPresentationChanged`. If omitted, the nearest `TreemapPresentationScope` is used.
-- `controller` - optional hover source used only when no presentation state is available. It does not resolve automatic bounds.
 
-Without presentation state, supply a finite or explicitly resolved scale. Such a bar legend can still render its colors and labels; supplying a controller also enables its hover pointer.
+Without presentation state, supply a finite or explicitly resolved scale. It renders colors and labels; supply presentation with a hovered target to enable its pointer.
 
 **`TreemapLegendConfig.discrete`** - configures separate legend items for exact values, categories, or numeric ranges.
 

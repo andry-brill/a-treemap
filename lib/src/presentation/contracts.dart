@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../controller.dart';
 import 'context.dart';
+import 'state.dart';
 
 typedef TreemapNodeWidgetBuilder<K> =
     Widget Function(BuildContext context, TreemapNodeDetails<K> details);
@@ -53,11 +54,11 @@ abstract interface class TreemapTooltipLayer<K> {
   Widget build(BuildContext context, TreemapTooltipContext<K> tooltip);
 }
 
-/// Builds arbitrary controller-aware surrounding content.
+/// Builds arbitrary presentation-aware surrounding content.
 typedef TreemapSurroundingContentBuilder<K> =
-    Widget Function(BuildContext context, TreemapController<K> controller);
+    Widget Function(BuildContext context, TreemapVisualContext<K> visual);
 
-/// Builds controller-aware content for a surrounding treemap composition.
+/// Builds presentation-aware content for a surrounding treemap composition.
 ///
 /// Unlike [TreemapSurroundingLayer], this contract creates only the chrome
 /// itself. A surrounding layout, such as `TreemapSurroundingGrid`, owns its
@@ -67,12 +68,12 @@ abstract interface class TreemapSurroundingContent<K> {
   const factory TreemapSurroundingContent.widget({required Widget child}) =
       _TreemapSurroundingWidget<K>;
 
-  /// Adapts a controller-aware builder to surrounding content.
+  /// Adapts a presentation-aware builder to surrounding content.
   const factory TreemapSurroundingContent.builder({
     required TreemapSurroundingContentBuilder<K> builder,
   }) = _TreemapSurroundingBuilder<K>;
 
-  Widget build(BuildContext context, TreemapController<K> controller);
+  Widget build(BuildContext context, TreemapVisualContext<K> visual);
 }
 
 final class _TreemapSurroundingWidget<K>
@@ -82,7 +83,7 @@ final class _TreemapSurroundingWidget<K>
   final Widget child;
 
   @override
-  Widget build(BuildContext context, TreemapController<K> controller) => child;
+  Widget build(BuildContext context, TreemapVisualContext<K> visual) => child;
 }
 
 final class _TreemapSurroundingBuilder<K>
@@ -92,8 +93,8 @@ final class _TreemapSurroundingBuilder<K>
   final TreemapSurroundingContentBuilder<K> builder;
 
   @override
-  Widget build(BuildContext context, TreemapController<K> controller) =>
-      builder(context, controller);
+  Widget build(BuildContext context, TreemapVisualContext<K> visual) =>
+      builder(context, visual);
 }
 
 /// Optional layer that can place arbitrary chrome around the treemap viewport.
@@ -101,6 +102,6 @@ abstract interface class TreemapSurroundingLayer<K> {
   Widget wrap(
     BuildContext context,
     Widget treemap,
-    TreemapController<K> controller,
+    TreemapVisualContext<K> visual,
   );
 }

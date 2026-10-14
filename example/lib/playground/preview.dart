@@ -9,7 +9,7 @@ import 'datasets.dart';
 
 typedef PlaygroundLayoutRunner =
     Future<TreemapGeometrySnapshot<String>> Function(
-      TreemapNode<String> root,
+      TreemapNormalizedTree<String> tree,
       TreemapBounds viewport,
       TreemapLayoutConfig<String> config,
     );
@@ -42,6 +42,9 @@ class PlaygroundPreview extends StatefulWidget {
 class _PlaygroundPreviewState extends State<PlaygroundPreview> {
   late TreemapController<String> _controller;
   late TreemapNode<String> _root;
+  TreemapNormalizedTree<String>? _tree;
+  bool _prepared = false;
+  String? _sourceError;
   PlaygroundComposition? _composition;
   String? _dataError;
   Set<TreemapKey<String>> _selection = {};
@@ -64,10 +67,18 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
 
   void _materialize() {
     _composition = null;
-    _dataError = null;
+    if (!_prepared) {
+      _prepared = true;
+      try {
+        _tree = TreemapNormalizer.normalize(_root);
+      } catch (error) {
+        _sourceError = error.toString();
+      }
+    }
+    _dataError = _sourceError;
+    if (_tree == null) return;
     try {
-      TreemapNormalizer.normalize(_root);
-      _composition = PlaygroundComposition(widget.config, _root);
+      _composition = PlaygroundComposition(widget.config, _tree!);
     } catch (error) {
       _dataError = error.toString();
     }
@@ -79,14 +90,9 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
           .optionalNumber('selection.maximum')
           ?.toInt(),
     );
-    if (_dataError == null) _controller.synchronize(_root, notify: false);
+    if (_dataError == null) _controller.synchronize(_tree!, notify: false);
     _selection = initialSelection(widget.config);
     _controller.setSelection(_selection);
-    _controller.addListener(_onNavigation);
-  }
-
-  void _onNavigation() {
-    if (mounted) setState(() {});
   }
 
   @override
@@ -98,7 +104,12 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
     final selectionLimitChanged =
         widget.config.optionalNumber('selection.maximum') !=
         oldWidget.config.optionalNumber('selection.maximum');
-    if (dataChanged) _root = createData(widget.config);
+    if (dataChanged) {
+      _root = createData(widget.config);
+      _tree = null;
+      _prepared = false;
+      _sourceError = null;
+    }
     if (widget.config != oldWidget.config) {
       _materialize();
       _executionGeneration++;
@@ -109,7 +120,6 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
     if (reset || selectionLimitChanged) {
       final oldFocus = reset ? null : _controller.focusKey?.sourceKey;
       final oldSelected = reset ? null : _controller.selectedEntries;
-      _controller.removeListener(_onNavigation);
       _controller.dispose();
       _installController();
       if (oldFocus != null) _controller.zoomTo(oldFocus);
@@ -121,11 +131,11 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
       _lastEvent = null;
       _output.value = null;
     } else if (dataChanged && _dataError == null) {
-      final tree = TreemapNormalizer.normalize(_root);
+      final tree = _tree!;
       _selection = _selection
           .where((key) => key.isSource && tree.nodes.containsKey(key.sourceKey))
           .toSet();
-      _controller.synchronize(_root, notify: false);
+      _controller.synchronize(_tree!, notify: false);
     }
     if (widget.config.text('selection.initial') !=
         oldWidget.config.text('selection.initial')) {
@@ -140,7 +150,6 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
   @override
   void dispose() {
     _executionGeneration++;
-    _controller.removeListener(_onNavigation);
     _controller.dispose();
     _output.dispose();
     super.dispose();
@@ -174,11 +183,9 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
     onEvent: _event,
     omitLegend: external || customTopEnd != null,
     customTopEnd: customTopEnd,
-    onPresentation: external
-        ? (state) {
-            if (mounted) _output.value = state;
-          }
-        : null,
+    onPresentation: (state) {
+      if (mounted) _output.value = state;
+    },
   );
 
   Widget _legend(PlaygroundComposition composition) => ValueListenableBuilder(
@@ -253,54 +260,57 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
     return Column(
       children: [
         if (widget.showToolbar)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Preview',
-                    style: Theme.of(context).textTheme.titleSmall,
+          ValueListenableBuilder(
+            valueListenable: _output,
+            builder: (context, state, _) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Preview',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
                   ),
-                ),
-                IconButton(
-                  key: const ValueKey('preview-back'),
-                  tooltip: 'Back one level',
-                  onPressed: _controller.canZoomOut
-                      ? _controller.zoomOut
-                      : null,
-                  icon: const Icon(Icons.arrow_back),
-                ),
-                IconButton(
-                  key: const ValueKey('preview-reset'),
-                  tooltip: 'Reset chart navigation',
-                  onPressed: _dataError == null
-                      ? () {
-                          _controller.reset();
-                          _controller.clearSelection();
-                          setState(() {
-                            _selection = {};
-                            _navigationResetGeneration++;
-                          });
-                        }
-                      : null,
-                  icon: const Icon(Icons.home_outlined),
-                ),
-                if (widget.onPropertyChange != null)
                   IconButton(
-                    tooltip: 'Update data revision',
-                    onPressed:
-                        propertiesByKey['data.revision']!.enabled(config) &&
-                            config.number('data.revision') <
-                                propertiesByKey['data.revision']!.maximum!
-                        ? () => widget.onPropertyChange!(
-                            'data.revision',
-                            config.integer('data.revision') + 1.0,
-                          )
+                    key: const ValueKey('preview-back'),
+                    tooltip: 'Back one level',
+                    onPressed: state?.canZoomOut == true
+                        ? _controller.zoomOut
                         : null,
-                    icon: const Icon(Icons.refresh),
+                    icon: const Icon(Icons.arrow_back),
                   ),
-              ],
+                  IconButton(
+                    key: const ValueKey('preview-reset'),
+                    tooltip: 'Reset chart navigation',
+                    onPressed: _dataError == null
+                        ? () {
+                            _controller.reset();
+                            _controller.clearSelection();
+                            setState(() {
+                              _selection = {};
+                              _navigationResetGeneration++;
+                            });
+                          }
+                        : null,
+                    icon: const Icon(Icons.home_outlined),
+                  ),
+                  if (widget.onPropertyChange != null)
+                    IconButton(
+                      tooltip: 'Update data revision',
+                      onPressed:
+                          propertiesByKey['data.revision']!.enabled(config) &&
+                              config.number('data.revision') <
+                                  propertiesByKey['data.revision']!.maximum!
+                          ? () => widget.onPropertyChange!(
+                              'data.revision',
+                              config.integer('data.revision') + 1.0,
+                            )
+                          : null,
+                      icon: const Icon(Icons.refresh),
+                    ),
+                ],
+              ),
             ),
           ),
         Expanded(
@@ -334,8 +344,14 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
       );
     }
     if (mode == 'isolate') return _isolate(composition);
-    if (mode == 'originsComparison' || mode == 'axesComparison') {
-      final options = mode == 'originsComparison' ? origins : axes;
+    if (mode == 'originsComparison' ||
+        mode == 'axesComparison' ||
+        mode == 'sharedTree') {
+      final options = mode == 'sharedTree'
+          ? ['Left chart', 'Right chart']
+          : mode == 'originsComparison'
+          ? origins
+          : axes;
       final property = mode == 'originsComparison'
           ? 'layout.origin'
           : 'layout.axisOrder';
@@ -351,10 +367,12 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
                         padding: const EdgeInsets.all(6),
                         child: ComparisonPane(
                           key: ValueKey(options[row * 2 + column]),
-                          root: _root,
-                          config: widget.config.withValues({
-                            property: options[row * 2 + column],
-                          }),
+                          tree: _tree!,
+                          config: mode == 'sharedTree'
+                              ? widget.config
+                              : widget.config.withValues({
+                                  property: options[row * 2 + column],
+                                }),
                           caption: options[row * 2 + column],
                           resetGeneration: widget.resetGeneration,
                           navigationResetGeneration: _navigationResetGeneration,
@@ -455,7 +473,7 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
         builder: (context, constraints) {
           try {
             TreemapLayoutEngine<String>().layout(
-              root: _root,
+              tree: _tree!,
               viewport: TreemapBounds.fromLTWH(
                 0,
                 0,
@@ -476,7 +494,7 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
   }
 
   Widget _hierarchy(TreemapNode<String> root) {
-    final totals = TreemapNormalizer.normalize(root).totals;
+    final totals = _tree!.totals;
     Widget row(TreemapNode<String> node, int depth) => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -511,12 +529,12 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
       );
       final result =
           await (widget.layoutRunner?.call(
-                _root,
+                _tree!,
                 viewport,
                 composition.layout,
               ) ??
               TreemapLayoutEngine<String>().layoutAsync(
-                root: _root,
+                tree: _tree!,
                 viewport: viewport,
                 config: composition.layout,
               ));
@@ -557,7 +575,7 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
                   width: _computed!.viewport.width,
                   height: _computed!.viewport.height,
                   child: ComputedSnapshotView(
-                    root: _root,
+                    tree: _tree!,
                     snapshot: _computed!,
                     composition: composition,
                   ),
@@ -586,13 +604,13 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
 class ComparisonPane extends StatefulWidget {
   const ComparisonPane({
     super.key,
-    required this.root,
+    required this.tree,
     required this.config,
     required this.caption,
     required this.resetGeneration,
     this.navigationResetGeneration = 0,
   });
-  final TreemapNode<String> root;
+  final TreemapNormalizedTree<String> tree;
   final PlaygroundConfig config;
   final String caption;
   final int resetGeneration;
@@ -603,6 +621,7 @@ class ComparisonPane extends StatefulWidget {
 
 class _ComparisonPaneState extends State<ComparisonPane> {
   late TreemapController<String> _controller;
+  final _output = ValueNotifier<TreemapPresentationState<String>?>(null);
   Set<TreemapKey<String>> _selection = {};
   @override
   void initState() {
@@ -615,14 +634,9 @@ class _ComparisonPaneState extends State<ComparisonPane> {
       maximumSelections: widget.config
           .optionalNumber('selection.maximum')
           ?.toInt(),
-    )..synchronize(widget.root, notify: false);
+    )..synchronize(widget.tree, notify: false);
     _selection = initialSelection(widget.config);
     _controller.setSelection(_selection);
-    _controller.addListener(_navigationChanged);
-  }
-
-  void _navigationChanged() {
-    if (mounted) setState(() {});
   }
 
   @override
@@ -634,9 +648,9 @@ class _ComparisonPaneState extends State<ComparisonPane> {
       final reset = widget.resetGeneration != oldWidget.resetGeneration;
       final focus = reset ? null : _controller.focusKey?.sourceKey;
       final selected = reset ? null : _controller.selectedEntries;
-      _controller.removeListener(_navigationChanged);
       _controller.dispose();
       _install();
+      _output.value = null;
       if (focus != null) _controller.zoomTo(focus);
       if (selected != null) {
         _controller.setSelection(selected);
@@ -660,31 +674,34 @@ class _ComparisonPaneState extends State<ComparisonPane> {
 
   @override
   void dispose() {
-    _controller.removeListener(_navigationChanged);
     _controller.dispose();
+    _output.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final composition = PlaygroundComposition(widget.config, widget.root);
+    final composition = PlaygroundComposition(widget.config, widget.tree);
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Flexible(
-                child: Text(widget.caption, overflow: TextOverflow.ellipsis),
-              ),
-              if (_controller.canZoomOut)
-                IconButton(
-                  tooltip: 'Back in ${widget.caption}',
-                  onPressed: _controller.zoomOut,
-                  icon: const Icon(Icons.arrow_back, size: 16),
+        ValueListenableBuilder(
+          valueListenable: _output,
+          builder: (context, state, _) => Padding(
+            padding: const EdgeInsets.all(6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: Text(widget.caption, overflow: TextOverflow.ellipsis),
                 ),
-            ],
+                if (state?.canZoomOut == true)
+                  IconButton(
+                    tooltip: 'Back in ${widget.caption}',
+                    onPressed: _controller.zoomOut,
+                    icon: const Icon(Icons.arrow_back, size: 16),
+                  ),
+              ],
+            ),
           ),
         ),
         Expanded(
@@ -695,6 +712,9 @@ class _ComparisonPaneState extends State<ComparisonPane> {
                 selection: _selection,
                 onSelection: (value) => setState(() => _selection = value),
                 onEvent: (_, _) {},
+                onPresentation: (state) {
+                  if (mounted) _output.value = state;
+                },
               );
               return widget.config.text('preview.mode') == 'axesComparison'
                   ? Center(
@@ -718,75 +738,80 @@ class _ComparisonPaneState extends State<ComparisonPane> {
 class ComputedSnapshotView extends StatelessWidget {
   const ComputedSnapshotView({
     super.key,
-    required this.root,
+    required this.tree,
     required this.snapshot,
     required this.composition,
   });
-  final TreemapNode<String> root;
+  final TreemapNormalizedTree<String> tree;
   final TreemapGeometrySnapshot<String> snapshot;
   final PlaygroundComposition composition;
   @override
   Widget build(BuildContext context) {
     return _ComputedLayers(
-      root: root,
+      tree: tree,
       snapshot: snapshot,
       composition: composition,
     );
   }
 }
 
-class _ComputedLayers extends StatefulWidget {
+class _ComputedLayers extends StatelessWidget {
   const _ComputedLayers({
-    required this.root,
+    required this.tree,
     required this.snapshot,
     required this.composition,
   });
-  final TreemapNode<String> root;
+  final TreemapNormalizedTree<String> tree;
   final TreemapGeometrySnapshot<String> snapshot;
   final PlaygroundComposition composition;
-  @override
-  State<_ComputedLayers> createState() => _ComputedLayersState();
-}
-
-class _ComputedLayersState extends State<_ComputedLayers> {
-  final _controller = TreemapController<String>();
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final state = TreemapPresentationState.fromData(
-      root: widget.root,
-      targetSnapshot: widget.snapshot,
+      tree: tree,
+      targetSnapshot: snapshot,
+      interactionEnabled: false,
     );
     final visual = TreemapVisualContext<String>(
-      snapshot: widget.snapshot,
       presentation: state,
-      details: {
-        for (final node in widget.snapshot.nodes)
-          node.key: TreemapNodeDetails(
-            geometry: node,
-            path: widget.snapshot.path,
-          ),
-      },
-      states: const {},
-      controller: _controller,
-      selection: const {},
+      actions: const _ReadOnlyActions(),
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
-      isAnimating: false,
-      onActivate: (_) {},
-      onFocus: (_) {},
     );
     return Stack(
       children: [
-        Positioned.fill(child: widget.composition.tiles.build(context, visual)),
-        if (widget.composition.labels case final labels?)
+        Positioned.fill(child: composition.tiles.build(context, visual)),
+        if (composition.labels case final labels?)
           Positioned.fill(child: labels.build(context, visual)),
       ],
     );
   }
+}
+
+final class _ReadOnlyActions implements TreemapActions<String> {
+  const _ReadOnlyActions();
+  @override
+  void activate(TreemapKey<String> key, {bool zoomOutRequested = false}) {}
+  @override
+  void hover(TreemapKey<String>? key) {}
+  @override
+  void focus(TreemapKey<String>? key) {}
+  @override
+  void select(TreemapKey<String> key, {bool toggle = false}) {}
+  @override
+  void setSelection(Iterable<TreemapKey<String>> keys) {}
+  @override
+  void clearSelection() {}
+  @override
+  TreemapCommandResult<String> zoomTo(String key) =>
+      const TreemapCommandResult(TreemapCommandStatus.unchanged);
+  @override
+  TreemapCommandResult<String> zoomOut() =>
+      const TreemapCommandResult(TreemapCommandStatus.unchanged);
+  @override
+  TreemapCommandResult<String> reset() =>
+      const TreemapCommandResult(TreemapCommandStatus.unchanged);
+  @override
+  TreemapCommandResult<String> revealAggregate(TreemapKey<String> key) =>
+      const TreemapCommandResult(TreemapCommandStatus.unchanged);
 }

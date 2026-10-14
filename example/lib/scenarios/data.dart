@@ -2,6 +2,22 @@ import '../scenario.dart';
 
 final dataScenarios = <ExamplePreset>[
   ExamplePreset(
+    id: 'data-prepared-tree',
+    title: 'One prepared tree, two charts',
+    category: 'Data',
+    description:
+        'Both charts share the prepared 10/30/60 hierarchy. Drill into A in one chart: its domain becomes 10–30 while the other stays 40–60.',
+    dataKey: 'color-domain',
+    overrides: {
+      'preview.mode': 'sharedTree',
+      'color.scale': 'interpolated',
+      'color.domainScope': 'visible',
+      'layout.maxVisibleDepth': 1,
+      'legend.enabled': true,
+      'breadcrumbs.enabled': true,
+    },
+  ),
+  ExamplePreset(
     id: "data-explicit-tree",
     title: "Explicit immutable tree",
     category: "Data",

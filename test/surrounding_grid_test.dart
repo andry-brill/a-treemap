@@ -318,6 +318,8 @@ void main() {
       ),
     );
 
+    // Surrounding consumers receive the computed hover input after layout.
+    await tester.pump();
     expect(find.byType(TreemapBreadcrumbsView<String>), findsOneWidget);
     expect(find.byType(TreemapLegendView<String>), findsOneWidget);
     expect(find.byType(TreemapLegendPointer), findsOneWidget);

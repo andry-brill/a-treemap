@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../controller.dart';
 import '../geometry.dart';
 import '../model.dart';
+import 'state.dart';
 
 /// Identifies transient or persistent state available to visual resolvers.
 enum TreemapVisualState {
@@ -23,6 +24,7 @@ enum TreemapVisualState {
 final class TreemapVisualContext<K> {
   TreemapVisualContext({
     required this.snapshot,
+    required this.presentation,
     required Map<TreemapKey<K>, TreemapNodeDetails<K>> details,
     required Map<TreemapKey<K>, Set<TreemapVisualState>> states,
     required this.controller,
@@ -40,6 +42,9 @@ final class TreemapVisualContext<K> {
        selection = Set.unmodifiable(selection);
 
   final TreemapGeometrySnapshot<K> snapshot;
+
+  /// Chart-owned destination, displayed frame and resolved color domains.
+  final TreemapPresentationState<K> presentation;
   final Map<TreemapKey<K>, TreemapNodeDetails<K>> details;
   final Map<TreemapKey<K>, Set<TreemapVisualState>> states;
   final TreemapController<K> controller;

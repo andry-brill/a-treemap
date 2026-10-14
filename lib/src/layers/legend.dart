@@ -5,6 +5,7 @@ import '../appearance/legend.dart';
 import '../appearance/overlay.dart';
 import '../controller.dart';
 import '../presentation/contracts.dart';
+import '../presentation/state.dart';
 import 'surrounding_grid.dart';
 
 /// Places a color-scale legend around a chart viewport.
@@ -36,17 +37,45 @@ class TreemapLegendView<K> extends StatelessWidget {
     required this.scale,
     required this.config,
     this.controller,
+    this.presentation,
   });
 
   final TreemapColorScale scale;
   final TreemapLegendConfig config;
   final TreemapController<K>? controller;
 
+  /// Chart output for a legend outside its presentation scope. Inside a chart,
+  /// the nearest scope is used automatically when this argument is absent.
+  /// Without either, automatic scales must first be resolved with resolveDomain.
+  final TreemapPresentationState<K>? presentation;
+
   @override
   Widget build(BuildContext context) {
+    final state = presentation ?? TreemapPresentationScope.maybeOf<K>(context);
+    if (state != null) {
+      return _build(
+        context,
+        state.resolveColorScale(scale),
+        state.hoveredColor,
+      );
+    }
+    return controller == null
+        ? _build(context, scale, null)
+        : ListenableBuilder(
+            listenable: controller!,
+            builder: (context, _) =>
+                _build(context, scale, controller!.hoveredColor),
+          );
+  }
+
+  Widget _build(
+    BuildContext context,
+    TreemapColorScale scale,
+    Object? hoveredColor,
+  ) {
     Widget legend = config.kind == TreemapLegendKind.discrete
-        ? _buildDiscrete(context)
-        : _buildBar(context);
+        ? _buildDiscrete(context, scale)
+        : _buildBar(context, scale, hoveredColor);
     if (config.title case final title?) {
       final titleWidget = config.titleBuilder(context, title);
       legend = config.direction == Axis.horizontal
@@ -75,7 +104,7 @@ class TreemapLegendView<K> extends StatelessWidget {
     );
   }
 
-  Widget _buildDiscrete(BuildContext context) {
+  Widget _buildDiscrete(BuildContext context, TreemapColorScale scale) {
     final items = [
       for (final entry in scale.legendEntries)
         Padding(
@@ -103,18 +132,29 @@ class TreemapLegendView<K> extends StatelessWidget {
     );
   }
 
-  Widget _buildBar(BuildContext context) {
+  Widget _buildBar(
+    BuildContext context,
+    TreemapColorScale scale,
+    Object? hoveredColor,
+  ) {
     final colors = config.segmented
         ? scale.legendEntries.map((entry) => entry.color).toList()
         : treemapSampleScale(scale, count: config.sampleCount);
-    if (colors.isEmpty) return const SizedBox.shrink();
     final barSize = config.direction == Axis.horizontal
         ? config.horizontalBarSize
         : config.verticalBarSize;
+    if (colors.isEmpty) {
+      return scale.isContinuous
+          ? SizedBox.fromSize(size: barSize)
+          : const SizedBox.shrink();
+    }
+    if (colors.length == 1) colors.add(colors.single);
     final bar = config.barBuilder(context, colors, config.direction);
     Widget withPointer(Object? value) {
       final fraction = treemapColorFraction(scale, value);
-      final pointer = value == null
+      final pointer =
+          value == null ||
+              (scale.isContinuous && (value is! num || !value.isFinite))
           ? null
           : config.pointerBuilder(context, scale.colorFor(value), fraction);
       return Stack(
@@ -138,12 +178,7 @@ class TreemapLegendView<K> extends StatelessWidget {
       );
     }
 
-    final content = controller == null
-        ? withPointer(null)
-        : ListenableBuilder(
-            listenable: controller!,
-            builder: (context, _) => withPointer(controller!.hoveredColor),
-          );
+    final content = withPointer(hoveredColor);
     final labels = scale.legendEntries;
     return config.direction == Axis.horizontal
         ? Column(
@@ -161,7 +196,8 @@ class TreemapLegendView<K> extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       config.labelBuilder(context, labels.first),
-                      config.labelBuilder(context, labels.last),
+                      if (labels.length > 1)
+                        config.labelBuilder(context, labels.last),
                     ],
                   ),
                 ),
@@ -182,7 +218,8 @@ class TreemapLegendView<K> extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       config.labelBuilder(context, labels.last),
-                      config.labelBuilder(context, labels.first),
+                      if (labels.length > 1)
+                        config.labelBuilder(context, labels.first),
                     ],
                   ),
                 ),

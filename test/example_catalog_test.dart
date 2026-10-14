@@ -1,4 +1,5 @@
 import 'dart:ui' show PointerDeviceKind;
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,8 +8,20 @@ import 'package:flutter_test/flutter_test.dart';
 import '../example/lib/main.dart';
 
 void main() {
+  test('each scenario appears exactly once in the feature matrix', () {
+    final ids = File('example/FEATURES.md')
+        .readAsLinesSync()
+        .where((line) => line.startsWith('|') && line.split('|').length > 3)
+        .map((line) => line.split('|')[2].trim())
+        .where((cell) => cell.startsWith('`') && cell.endsWith('`'))
+        .map((cell) => cell.substring(1, cell.length - 1))
+        .toList();
+    expect(ids, unorderedEquals(allScenarios.map((scenario) => scenario.id)));
+    expect(ids.toSet(), hasLength(ids.length));
+  });
+
   test('every scenario has detailed tooltip metadata', () {
-    expect(allScenarios, hasLength(44));
+    expect(allScenarios, hasLength(50));
     for (final scenario in allScenarios) {
       expect(
         scenario.description.trim().length,

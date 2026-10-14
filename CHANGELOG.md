@@ -1,5 +1,40 @@
 # Changelog
 
+## 2.0.0
+
+- **Breaking:** moved chart snapshots and color domains to immutable
+  `TreemapPresentationState`. Removed controller `resolveColorScale` and
+  `synchronizeLayout`; use `visual.presentation.resolveColorScale` in layers or
+  `TreemapPresentationScope.of` in surrounding content. Controllers retain
+  navigation, hover, and selection without receiving computed layout results.
+- **Breaking:** `TreemapVisualContext` now requires a `presentation` argument.
+  Custom hosts can construct it with `TreemapPresentationState.fromData`.
+- Added `TreemapChart.onPresentationChanged` and `TreemapLegendView.presentation`
+  for external legends and custom observers. Notifications reach presentation
+  consumers after the frame without rebuilding through controller listeners.
+- Standalone automatic legends now require presentation state or an explicitly
+  resolved scale; a controller alone supplies interaction, not color domains.
+- Added a runnable example of chart-owned state, scope-based chrome, custom
+  tiles, and an external legend following depth changes and drill-down.
+
+## 1.2.0
+
+- Added automatic bounds to interpolated and saturation color scales. Minimum
+  defaults to `double.negativeInfinity` and maximum to `double.infinity`;
+  either bound can independently remain fixed.
+- Added `TreemapColorDomainScope.global` (the default) and `.visible` to infer
+  bounds from the full source hierarchy or the current focus, visible depth,
+  culling, and aggregation. Constant domains use the midpoint color; empty
+  domains retain the configured fallback and omit legend entries.
+- Added immutable `resolveDomain` and controller `resolveColorScale` resolution
+  for standalone and custom presentations. Tiles, labels, and legends share
+  the destination domain throughout updates and transitions.
+- Fixed weight-based legend pointers and stale color inputs when source data
+  changes without changing tile geometry. Continuous pointers ignore
+  nonnumeric inputs, including direct Flutter colors.
+- Added runnable examples for global and visible automatic interpolation,
+  mixed fixed/automatic bounds, automatic saturation, and standalone resolution.
+
 ## 1.1.0
 
 - Added `TreemapLayoutConfig.maxVisibleDepth` for depth-limited rendering

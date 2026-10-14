@@ -71,7 +71,6 @@ final class TreemapController<K> extends ChangeNotifier
   final LinkedHashSet<TreemapKey<K>> _selected = LinkedHashSet();
   TreemapKey<K>? _hoveredKey;
   Object? _hoveredColor;
-
   TreemapKey<K>? get focusKey => _focus?.key;
   List<TreemapPathEntry<K>> get currentPath => List.unmodifiable(_path);
   Set<TreemapKey<K>> get selectedEntries => Set.unmodifiable(_selected);
@@ -96,11 +95,10 @@ final class TreemapController<K> extends ChangeNotifier
   }
 
   /// Synchronizes state after a caller supplies a new immutable tree.
-  void synchronize(TreemapNode<K> root) {
+  void synchronize(TreemapNode<K> root, {bool notify = true}) {
     final next = TreemapNormalizer.normalize(root);
     final oldFocus = _focus;
     _tree = next;
-
     if (oldFocus?.key.isAggregate == true) {
       final survivingMembers = oldFocus!.aggregateMembers
           .map((node) => next.nodes[node.key])
@@ -132,6 +130,13 @@ final class TreemapController<K> extends ChangeNotifier
         !next.nodes.containsKey(_hoveredKey!.sourceKey)) {
       _hoveredKey = null;
       _hoveredColor = null;
+    }
+    if (_hoveredKey?.isSource == true) {
+      final key = _hoveredKey!.sourceKey;
+      _hoveredColor = next.nodes[key]?.color ?? next.totals[key];
+    }
+    if (notify) {
+      notifyListeners();
     }
   }
 

@@ -24,15 +24,18 @@ final class TreemapAppearanceResolver<K> {
   final TreemapStyle style;
   final TreemapNodeStyleResolver<K>? nodeStyleResolver;
 
+  /// Resolves one tile, optionally using a scale whose automatic bounds have
+  /// already been resolved for the chart or a standalone set of values.
   TreemapAppearance resolve(
     BuildContext context,
     TreemapNodeDetails<K> details,
-    Set<TreemapVisualState> states,
-  ) {
+    Set<TreemapVisualState> states, {
+    TreemapColorScale? resolvedScale,
+  }) {
     final colorInput = details.color;
     final color = colorInput is Color
         ? colorInput
-        : colorScale.colorFor(colorInput ?? details.weight);
+        : (resolvedScale ?? colorScale).colorFor(colorInput ?? details.weight);
     var appearance = TreemapAppearance(
       color: color,
     ).merge(style.tileAppearance);

@@ -13,6 +13,7 @@ import 'layout.dart';
 import 'model.dart';
 import 'presentation/context.dart';
 import 'presentation/contracts.dart';
+import 'presentation/state.dart';
 import 'presentation/transitions.dart';
 
 typedef TreemapSnapshotCallback<K> =
@@ -39,6 +40,7 @@ class TreemapChart<K> extends StatefulWidget {
     this.clipBehavior = Clip.none,
     this.autofocus = false,
     this.onSnapshot,
+    this.onPresentationChanged,
   }) : _layout = layout;
 
   final TreemapNode<K> root;
@@ -61,6 +63,10 @@ class TreemapChart<K> extends StatefulWidget {
   final bool autofocus;
   final TreemapSnapshotCallback<K>? onSnapshot;
 
+  /// Observes immutable chart output after the frame. External legends can
+  /// consume this state without sending layout results back to the controller.
+  final ValueChanged<TreemapPresentationState<K>>? onPresentationChanged;
+
   @override
   State<TreemapChart<K>> createState() => _TreemapChartState<K>();
 
@@ -81,22 +87,26 @@ class TreemapChart<K> extends StatefulWidget {
 final class _TreemapChartState<K> extends State<TreemapChart<K>> {
   late TreemapController<K> _controller;
   late bool _ownsController;
+  late final TreemapPresentationOwner<K> _presentation;
 
   @override
   void initState() {
     super.initState();
+    _presentation = TreemapPresentationOwner(widget.root)
+      ..onChanged = ((state) => widget.onPresentationChanged?.call(state));
     _installController(widget.controller);
   }
 
   @override
   void didUpdateWidget(covariant TreemapChart<K> oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _presentation.updateSource(widget.root);
     if (oldWidget.controller != widget.controller) {
       _controller.removeListener(_handleControllerChanged);
       if (_ownsController) _controller.dispose();
       _installController(widget.controller);
     } else if (!identical(oldWidget.root, widget.root)) {
-      _controller.synchronize(widget.root);
+      _controller.synchronize(widget.root, notify: false);
     }
   }
 
@@ -104,7 +114,7 @@ final class _TreemapChartState<K> extends State<TreemapChart<K>> {
     _ownsController = supplied == null;
     _controller = supplied ?? TreemapController<K>();
     _controller
-      ..synchronize(widget.root)
+      ..synchronize(widget.root, notify: false)
       ..addListener(_handleControllerChanged);
   }
 
@@ -116,15 +126,17 @@ final class _TreemapChartState<K> extends State<TreemapChart<K>> {
   void dispose() {
     _controller.removeListener(_handleControllerChanged);
     if (_ownsController) _controller.dispose();
+    _presentation.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    Widget content = _TreemapViewport<K>(
+    final viewport = _TreemapViewport<K>(
       root: widget.root,
       tiles: widget.tiles,
       controller: _controller,
+      presentation: _presentation,
       layout: widget.layout,
       labels: widget.labels,
       interaction: widget.interaction,
@@ -137,10 +149,14 @@ final class _TreemapChartState<K> extends State<TreemapChart<K>> {
       onSnapshot: widget.onSnapshot,
     );
 
-    if (widget.surrounding case final surrounding?) {
-      content = surrounding.wrap(context, content, _controller);
-    }
-    return content;
+    return TreemapPresentationScope<K>(
+      presentation: _presentation,
+      child: Builder(
+        builder: (context) =>
+            widget.surrounding?.wrap(context, viewport, _controller) ??
+            viewport,
+      ),
+    );
   }
 }
 
@@ -150,6 +166,7 @@ final class _TreemapViewport<K> extends StatefulWidget {
     required this.root,
     required this.tiles,
     required this.controller,
+    required this.presentation,
     required this.layout,
     required this.labels,
     required this.interaction,
@@ -165,6 +182,7 @@ final class _TreemapViewport<K> extends StatefulWidget {
   final TreemapNode<K> root;
   final TreemapTileLayer<K> tiles;
   final TreemapController<K> controller;
+  final TreemapPresentationOwner<K> presentation;
   final TreemapLayoutConfig<K> layout;
   final TreemapLabelLayer<K>? labels;
   final TreemapInteractionConfig<K> interaction;
@@ -188,9 +206,10 @@ final class _TreemapViewportState<K> extends State<_TreemapViewport<K>> {
   final FocusNode _focusNode = FocusNode(debugLabel: 'TreemapChart');
   final LinkedHashMap<_LayoutCacheKey<K>, TreemapGeometrySnapshot<K>> _cache =
       LinkedHashMap();
-  TreemapGeometrySnapshot<K>? _target;
-  TreemapGeometrySnapshot<K>? _displayed;
-  TreemapGeometrySnapshot<K>? _from;
+  TreemapGeometrySnapshot<K>? get _target => widget.presentation.targetSnapshot;
+  TreemapGeometrySnapshot<K>? get _displayed =>
+      widget.presentation.value.displayedSnapshot;
+  TreemapGeometrySnapshot<K>? get _from => widget.presentation.transitionOrigin;
   int _animationGeneration = 0;
   TreemapKey<K>? _tooltipKey;
   TreemapKey<K>? _keyboardKey;
@@ -200,6 +219,14 @@ final class _TreemapViewportState<K> extends State<_TreemapViewport<K>> {
   Timer? _tooltipTimer;
   bool _longPressFired = false;
   bool _visibleDepthChanged = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Surrounding composition can replace the viewport while the chart keeps
+    // its output. Resume from that frame, not a completed transition's origin.
+    widget.presentation.transitionOrigin = _displayed ?? _target;
+  }
 
   @override
   void didUpdateWidget(covariant _TreemapViewport<K> oldWidget) {
@@ -237,7 +264,17 @@ final class _TreemapViewportState<K> extends State<_TreemapViewport<K>> {
           ]);
         }
         final size = constraints.biggest;
-        if (size.isEmpty) return const SizedBox.shrink();
+        if (size.isEmpty) {
+          final empty = TreemapGeometrySnapshot<K>.empty(
+            TreemapBounds.fromLTWH(0, 0, size.width, size.height),
+          );
+          widget.presentation.updateTarget(empty);
+          widget.presentation.displayFrame(
+            empty,
+            hoveredKey: widget.controller.hoveredKey,
+          );
+          return const SizedBox.shrink();
+        }
         final media = MediaQuery.of(context);
         final next = _resolveSnapshot(size);
         if (_visibleDepthChanged) {
@@ -245,11 +282,12 @@ final class _TreemapViewportState<K> extends State<_TreemapViewport<K>> {
           _clearHiddenDepthTargets(next);
         }
         if (!_sameGeometry(_target, next)) {
-          _from = _displayed ?? _target ?? next;
-          _target = next;
+          widget.presentation.transitionOrigin = _displayed ?? _target ?? next;
           _animationGeneration++;
           widget.onSnapshot?.call(next);
         }
+        // Equal rectangles can still have new node colors, labels, or data.
+        widget.presentation.updateTarget(next);
         final reduceMotion =
             media.disableAnimations || media.accessibleNavigation;
         return TweenAnimationBuilder<double>(
@@ -265,7 +303,10 @@ final class _TreemapViewportState<K> extends State<_TreemapViewport<K>> {
               _target!,
               value,
             );
-            _displayed = frame;
+            widget.presentation.displayFrame(
+              frame,
+              hoveredKey: widget.controller.hoveredKey,
+            );
             return _buildFrame(context, frame, _target!, value < 1);
           },
         );
@@ -370,6 +411,7 @@ final class _TreemapViewportState<K> extends State<_TreemapViewport<K>> {
     };
     final visual = TreemapVisualContext<K>(
       snapshot: frame,
+      presentation: widget.presentation.value,
       details: details,
       states: states,
       controller: widget.controller,
@@ -491,7 +533,10 @@ final class _TreemapViewportState<K> extends State<_TreemapViewport<K>> {
             geometry: geometry,
             path: _pathFor(snapshot, geometry),
           );
-    widget.controller.setHovered(geometry?.key, color: details?.color);
+    widget.controller.setHovered(
+      geometry?.key,
+      color: details == null ? null : details.color ?? details.weight,
+    );
     widget.interaction.onHoverChanged?.call(details);
     final tooltip = widget.tooltip;
     if (tooltip != null && tooltip.activation != TreemapTooltipActivation.tap) {

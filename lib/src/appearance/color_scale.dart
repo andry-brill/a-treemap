@@ -3,6 +3,15 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+/// Selects the data used to infer a continuous scale's automatic bounds.
+enum TreemapColorDomainScope {
+  /// All source branches and leaves, excluding the container root.
+  global,
+
+  /// All visible target tiles at the current focus and depth, including aggregates.
+  visible,
+}
+
 /// Describes one discrete value, range, or stop exposed by a color scale.
 final class TreemapLegendEntry {
   const TreemapLegendEntry({
@@ -43,8 +52,9 @@ abstract class TreemapColorScale {
   }) => TreemapNumericRangeColorScale(ranges, fallback: fallback);
 
   factory TreemapColorScale.interpolated({
-    required double minimum,
-    required double maximum,
+    double minimum = double.negativeInfinity,
+    double maximum = double.infinity,
+    TreemapColorDomainScope domainScope = TreemapColorDomainScope.global,
     required List<Color> colors,
     required Color fallback,
     TreemapContinuousLegendLabelFormatter labelFormatter =
@@ -52,14 +62,16 @@ abstract class TreemapColorScale {
   }) => TreemapInterpolatedColorScale(
     minimum: minimum,
     maximum: maximum,
+    domainScope: domainScope,
     colors: colors,
     fallback: fallback,
     labelFormatter: labelFormatter,
   );
 
   factory TreemapColorScale.saturation({
-    required double minimum,
-    required double maximum,
+    double minimum = double.negativeInfinity,
+    double maximum = double.infinity,
+    TreemapColorDomainScope domainScope = TreemapColorDomainScope.global,
     required Color color,
     double minimumSaturation = .15,
     double maximumSaturation = 1,
@@ -68,6 +80,7 @@ abstract class TreemapColorScale {
   }) => TreemapSaturationColorScale(
     minimum: minimum,
     maximum: maximum,
+    domainScope: domainScope,
     color: color,
     minimumSaturation: minimumSaturation,
     maximumSaturation: maximumSaturation,
@@ -226,19 +239,19 @@ final class TreemapNumericRangeColorScale extends TreemapColorScale {
 }
 
 /// Interpolates numeric values across two or more color stops.
+///
+/// Omitted bounds are inferred by the chart, or by [resolveDomain] for standalone
+/// use. Either bound can independently be fixed to a finite number.
 final class TreemapInterpolatedColorScale extends TreemapColorScale {
   TreemapInterpolatedColorScale({
-    required this.minimum,
-    required this.maximum,
+    this.minimum = double.negativeInfinity,
+    this.maximum = double.infinity,
+    this.domainScope = TreemapColorDomainScope.global,
     required List<Color> colors,
     required this.fallback,
     this.labelFormatter = _oneFractionLegendLabel,
   }) : colors = List.unmodifiable(colors) {
-    if (!minimum.isFinite || !maximum.isFinite || maximum <= minimum) {
-      throw ArgumentError(
-        'Interpolation domain must be finite and increasing.',
-      );
-    }
+    _validateDomain(minimum, maximum);
     if (colors.length < 2) {
       throw ArgumentError('Interpolated scales require at least two colors.');
     }
@@ -248,6 +261,7 @@ final class TreemapInterpolatedColorScale extends TreemapColorScale {
   final double minimum;
   @override
   final double maximum;
+  final TreemapColorDomainScope domainScope;
   final List<Color> colors;
   final Color fallback;
   final TreemapContinuousLegendLabelFormatter labelFormatter;
@@ -257,40 +271,48 @@ final class TreemapInterpolatedColorScale extends TreemapColorScale {
 
   @override
   Color colorFor(Object? value) {
+    _requireResolved(this);
     if (value is! num || !value.isFinite) return fallback;
-    final t = ((value - minimum) / (maximum - minimum)).clamp(0.0, 1.0);
+    return _colorAt(_fraction(value, minimum, maximum));
+  }
+
+  Color _colorAt(double t) {
     final scaled = t * (colors.length - 1);
     final index = scaled.floor().clamp(0, colors.length - 2);
     return Color.lerp(colors[index], colors[index + 1], scaled - index)!;
   }
 
   @override
-  List<TreemapLegendEntry> get legendEntries => List.unmodifiable([
-    for (final entry in colors.indexed)
-      TreemapLegendEntry(
-        label: labelFormatter(
-          minimum + (maximum - minimum) * entry.$1 / (colors.length - 1),
+  List<TreemapLegendEntry> get legendEntries {
+    _requireResolved(this);
+    return List.unmodifiable([
+      for (final entry in colors.indexed)
+        TreemapLegendEntry(
+          label: labelFormatter(
+            _domainValue(minimum, maximum, entry.$1 / (colors.length - 1)),
+          ),
+          color: entry.$2,
+          value: _domainValue(minimum, maximum, entry.$1 / (colors.length - 1)),
         ),
-        color: entry.$2,
-        value: minimum + (maximum - minimum) * entry.$1 / (colors.length - 1),
-      ),
-  ]);
+    ]);
+  }
 }
 
 /// Maps numeric values by varying the saturation of a single base color.
+///
+/// Uses the same automatic bound and scope rules as [TreemapInterpolatedColorScale].
 final class TreemapSaturationColorScale extends TreemapColorScale {
   TreemapSaturationColorScale({
-    required this.minimum,
-    required this.maximum,
+    this.minimum = double.negativeInfinity,
+    this.maximum = double.infinity,
+    this.domainScope = TreemapColorDomainScope.global,
     required this.color,
     this.minimumSaturation = .15,
     this.maximumSaturation = 1,
     required this.fallback,
     this.labelFormatter = _plainLegendLabel,
   }) {
-    if (!minimum.isFinite || !maximum.isFinite || maximum <= minimum) {
-      throw ArgumentError('Saturation domain must be finite and increasing.');
-    }
+    _validateDomain(minimum, maximum);
     if (minimumSaturation < 0 ||
         maximumSaturation > 1 ||
         minimumSaturation > maximumSaturation) {
@@ -302,6 +324,7 @@ final class TreemapSaturationColorScale extends TreemapColorScale {
   final double minimum;
   @override
   final double maximum;
+  final TreemapColorDomainScope domainScope;
   final Color color;
   final double minimumSaturation;
   final double maximumSaturation;
@@ -313,8 +336,12 @@ final class TreemapSaturationColorScale extends TreemapColorScale {
 
   @override
   Color colorFor(Object? value) {
+    _requireResolved(this);
     if (value is! num || !value.isFinite) return fallback;
-    final t = ((value - minimum) / (maximum - minimum)).clamp(0.0, 1.0);
+    return _colorAt(_fraction(value, minimum, maximum));
+  }
+
+  Color _colorAt(double t) {
     final hsl = HSLColor.fromColor(color);
     return hsl
         .withSaturation(
@@ -324,18 +351,173 @@ final class TreemapSaturationColorScale extends TreemapColorScale {
   }
 
   @override
-  List<TreemapLegendEntry> get legendEntries => [
-    TreemapLegendEntry(
-      label: labelFormatter(minimum),
-      color: colorFor(minimum),
-      value: minimum,
-    ),
-    TreemapLegendEntry(
-      label: labelFormatter(maximum),
-      color: colorFor(maximum),
-      value: maximum,
-    ),
-  ];
+  List<TreemapLegendEntry> get legendEntries {
+    _requireResolved(this);
+    return [
+      TreemapLegendEntry(
+        label: labelFormatter(minimum),
+        color: colorFor(minimum),
+        value: minimum,
+      ),
+      TreemapLegendEntry(
+        label: labelFormatter(maximum),
+        color: colorFor(maximum),
+        value: maximum,
+      ),
+    ];
+  }
+}
+
+/// Resolves automatic bounds without mutating the supplied scale.
+extension TreemapColorScaleDomainResolution on TreemapColorScale {
+  /// Infers each automatic bound from finite numbers in [values].
+  ///
+  /// Explicit and custom scales are returned unchanged. Charts resolve their
+  /// configured scope through the controller; standalone callers supply values
+  /// here before reading colors, legend entries, or sampling an automatic scale.
+  TreemapColorScale resolveDomain(Iterable<Object?> values) {
+    final scale = this;
+    final Color fallback;
+    final Color Function(double) colorAt;
+    final TreemapContinuousLegendLabelFormatter formatter;
+    final int stopCount;
+    switch (scale) {
+      case TreemapInterpolatedColorScale():
+        fallback = scale.fallback;
+        colorAt = scale._colorAt;
+        formatter = scale.labelFormatter;
+        stopCount = scale.colors.length;
+      case TreemapSaturationColorScale():
+        fallback = scale.fallback;
+        colorAt = scale._colorAt;
+        formatter = scale.labelFormatter;
+        stopCount = 2;
+      default:
+        return scale;
+    }
+    final autoMinimum = minimum == double.negativeInfinity;
+    final autoMaximum = maximum == double.infinity;
+    if (!autoMinimum && !autoMaximum) return scale;
+    double? low;
+    double? high;
+    for (final value in values) {
+      if (value is! num || !value.isFinite) continue;
+      final number = value.toDouble();
+      low = low == null ? number : math.min(low, number);
+      high = high == null ? number : math.max(high, number);
+    }
+    if (low != null) {
+      low = autoMinimum ? low : minimum!;
+      high = autoMaximum ? high! : maximum!;
+      if (low > high) {
+        if (autoMinimum) {
+          low = high;
+        } else {
+          high = low;
+        }
+      }
+    }
+    return _ResolvedContinuousColorScale(
+      minimum: low,
+      maximum: high,
+      fallback: fallback,
+      colorAt: colorAt,
+      formatter: formatter,
+      stopCount: stopCount,
+    );
+  }
+}
+
+final class _ResolvedContinuousColorScale extends TreemapColorScale {
+  const _ResolvedContinuousColorScale({
+    required this.minimum,
+    required this.maximum,
+    required this.fallback,
+    required this.colorAt,
+    required this.formatter,
+    required this.stopCount,
+  });
+
+  @override
+  final double? minimum;
+  @override
+  final double? maximum;
+  final Color fallback;
+  final Color Function(double) colorAt;
+  final TreemapContinuousLegendLabelFormatter formatter;
+  final int stopCount;
+
+  @override
+  bool get isContinuous => true;
+
+  @override
+  Color colorFor(Object? value) =>
+      minimum == null || value is! num || !value.isFinite
+      ? fallback
+      : colorAt(_fraction(value, minimum!, maximum!));
+
+  @override
+  List<TreemapLegendEntry> get legendEntries {
+    final low = minimum;
+    final high = maximum;
+    if (low == null || high == null) return const [];
+    final count = low == high ? 1 : stopCount;
+    return List.unmodifiable([
+      for (var index = 0; index < count; index++)
+        TreemapLegendEntry(
+          label: formatter(
+            _domainValue(low, high, count == 1 ? .5 : index / (count - 1)),
+          ),
+          color: colorAt(count == 1 ? .5 : index / (count - 1)),
+          value: _domainValue(low, high, count == 1 ? .5 : index / (count - 1)),
+        ),
+    ]);
+  }
+}
+
+void _validateDomain(double minimum, double maximum) {
+  if (minimum.isNaN ||
+      maximum.isNaN ||
+      minimum == double.infinity ||
+      maximum == double.negativeInfinity ||
+      (minimum.isFinite && maximum.isFinite && maximum <= minimum)) {
+    throw ArgumentError(
+      'Color bounds must be finite and increasing, or use negativeInfinity '
+      'for an automatic minimum and infinity for an automatic maximum.',
+    );
+  }
+}
+
+void _requireResolved(TreemapColorScale scale) {
+  if ((scale is TreemapInterpolatedColorScale ||
+          scale is TreemapSaturationColorScale) &&
+      (scale.minimum == double.negativeInfinity ||
+          scale.maximum == double.infinity)) {
+    throw StateError(
+      'Automatic color bounds need data. Use presentation.resolveColorScale(scale) '
+      'in a chart or scale.resolveDomain(values) before reading colors or legends.',
+    );
+  }
+}
+
+double _fraction(num value, double minimum, double maximum) {
+  if (minimum == maximum && value == minimum) return .5;
+  if (value <= minimum) return 0;
+  if (value >= maximum) return 1;
+  final span = maximum - minimum;
+  return span.isFinite
+      ? ((value - minimum) / span).clamp(0.0, 1.0)
+      : ((value / 2 - minimum / 2) / (maximum / 2 - minimum / 2)).clamp(
+          0.0,
+          1.0,
+        );
+}
+
+double _domainValue(double minimum, double maximum, double t) {
+  if (t == 0) return minimum;
+  if (t == 1) return maximum;
+  final span = maximum - minimum;
+  return span.isFinite ? minimum + span * t : minimum * (1 - t) + maximum * t;
 }
 
 Color treemapContrastingTextColor(Color color) {
@@ -345,21 +527,26 @@ Color treemapContrastingTextColor(Color color) {
 }
 
 double treemapColorFraction(TreemapColorScale scale, Object? value) {
-  if (value is! num || scale.minimum == null || scale.maximum == null) return 0;
-  return ((value - scale.minimum!) / (scale.maximum! - scale.minimum!)).clamp(
-    0.0,
-    1.0,
-  );
+  _requireResolved(scale);
+  if (value is! num ||
+      !value.isFinite ||
+      scale.minimum == null ||
+      scale.maximum == null) {
+    return 0;
+  }
+  return _fraction(value, scale.minimum!, scale.maximum!);
 }
 
 List<Color> treemapSampleScale(TreemapColorScale scale, {int count = 32}) {
+  _requireResolved(scale);
   final minimum = scale.minimum;
   final maximum = scale.maximum;
   if (minimum == null || maximum == null) {
     return scale.legendEntries.map((entry) => entry.color).toList();
   }
+  final samples = math.max(2, count);
   return [
-    for (var index = 0; index < math.max(2, count); index++)
-      scale.colorFor(minimum + (maximum - minimum) * index / (count - 1)),
+    for (var index = 0; index < samples; index++)
+      scale.colorFor(_domainValue(minimum, maximum, index / (samples - 1))),
   ];
 }

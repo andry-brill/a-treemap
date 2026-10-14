@@ -104,8 +104,8 @@ The rendering pipeline has four separate responsibilities:
 
 1. `TreemapNode<K>` describes caller-owned data. `TreemapNormalizer` validates it and derives branch totals.
 2. `TreemapLayoutEngine<K>` turns the hierarchy into a `TreemapGeometrySnapshot<K>` for a viewport and focus.
-3. `TreemapChart<K>` coordinates geometry, controller state, input, and animation.
-4. Replaceable presentation layers receive a `TreemapVisualContext<K>` and render tiles, labels, semantics, tooltips, or surrounding chrome.
+3. `TreemapChart<K>` computes layouts and owns immutable `TreemapPresentationState<K>` containing destination/displayed snapshots and color domains. The controller owns navigation and interaction only.
+4. Replaceable layers read `visual.presentation`; surrounding chrome reads `TreemapPresentationScope`. Presentation updates flow to consumers without writing layouts back to the controller.
 
 This separation lets an application replace labels without reimplementing navigation, use the layout engine without constructing widgets, or change colors without changing geometry.
 
@@ -231,7 +231,8 @@ Catch this exception when records are user-generated and validation failures sho
 - `transition` - optional keyed geometry animation; null applies updates immediately.
 - `clipBehavior` - clipping for the chart stack; defaults to `Clip.none`.
 - `autofocus` - whether the chart initially requests keyboard focus; defaults to false.
-- `onSnapshot` - optional callback invoked when a new target layout is produced.
+- `onSnapshot` - optional callback invoked when target geometry changes.
+- `onPresentationChanged` - optional callback with immutable presentation output after the frame, including color-only changes and animation frames. Use it to update external legends or observers; keep source data stable unless it actually changes.
 
 The chart requires finite width and height, caches recent layouts, hit-tests the deepest visible block, and synchronizes controller state when `root` changes. The surrounding layer wraps the bounded viewport exactly once; tile, label, semantics, and tooltip layers share its geometry.
 
@@ -588,6 +589,7 @@ Custom content therefore receives the same active controller without implementin
 **`TreemapVisualContext<K>`** - immutable state shared by every in-viewport presentation layer.
 
 - `snapshot` - geometry for the current animation frame.
+- `presentation` - required chart-owned immutable state, including the target snapshot and color domain resolver.
 - `details` - unmodifiable node-details map keyed by `TreemapKey<K>`.
 - `states` - unmodifiable hover, selection, keyboard-focus, and disabled-state sets per key.
 - `controller` - active chart controller.
@@ -600,6 +602,39 @@ Custom content therefore receives the same active controller without implementin
 - `visibleLeafNodes` - deepest visible blocks suitable for labels and semantics.
 
 Custom layers should consume `statesFor(key)` instead of maintaining duplicate pointer or selection state.
+
+**`TreemapPresentationState<K>`** - immutable computed chart output.
+
+- `targetSnapshot` - destination layout, or null before the first layout.
+- `displayedSnapshot` - current animation frame; may include outgoing nodes.
+- `hoveredKey` and `hoveredColor` - interaction identity and its effective input from the destination snapshot. Hidden nodes have no hover color; missing source colors use effective weights.
+- `resolveColorScale(scale)` - resolves automatic bounds from cached global or visible extrema. Explicit/custom scales pass through unchanged.
+- `TreemapPresentationState.fromData(root: ..., targetSnapshot: ..., hoveredKey: ...)` - constructs standalone presentation data. Only `root` is required; visible bounds and hovered values require a target snapshot.
+
+The chart computes global extrema when source data changes and visible extrema when its destination layout changes. Animation frames reuse the destination domain. Supplied scales and previously delivered presentation states remain unchanged.
+
+**`TreemapPresentationScope.of<K>(context)`** reads the nearest chart's state and subscribes that consumer to changes; `maybeOf<K>(context)` returns null outside a scope. Surrounding content can read this scope through its builder context. In-viewport layers use `visual.presentation` directly. The scope publishes after the frame, and does not notify the navigation controller or rerun chart computation.
+
+For an external legend, store the chart's output in a `ValueNotifier` and rebuild just the consumer:
+
+```dart
+final output = ValueNotifier(TreemapPresentationState.fromData(root: root));
+
+// On the chart:
+// onPresentationChanged: (state) => output.value = state,
+
+ValueListenableBuilder<TreemapPresentationState<String>>(
+  valueListenable: output,
+  builder: (context, state, _) => TreemapLegendView<String>(
+    scale: scale,
+    presentation: state,
+    config: const TreemapLegendConfig.bar(),
+  ),
+);
+// Dispose output with its owning widget.
+```
+
+**Migrating to 2.0.0:** replace `controller.resolveColorScale(scale)` with `visual.presentation.resolveColorScale(scale)` in custom layers, or `TreemapPresentationScope.of<K>(context).resolveColorScale(scale)` in surrounding content. Remove calls to `controller.synchronizeLayout`; custom hosts can create `TreemapPresentationState.fromData` from their own source and target snapshot. Manual `TreemapVisualContext` construction now requires `presentation`. Standalone automatic legends receive `presentation` or an explicitly resolved scale; their controller is used only for interaction when no presentation is supplied.
 
 **`TreemapTooltipContext<K>`** - current tooltip target plus the complete shared visual context.
 
@@ -673,7 +708,7 @@ Choose this layer for icons, badges, SVGs, images, animations, or rich compositi
 - `colorScale` - required scale for category, numeric, or missing color inputs.
 - `style` - base and state-specific `TreemapStyle`; defaults to `TreemapStyle()`.
 - `nodeStyleResolver` - optional final per-node override receiving build context, node details, and current visual states.
-- `resolve(context, details, states)` - returns one complete `TreemapAppearance` or throws when neither a color nor gradient remains.
+- `resolve(context, details, states, {resolvedScale})` - returns one complete `TreemapAppearance` or throws when neither a color nor gradient remains. Custom layers can pass a chart-resolved or standalone-resolved scale; standard tiles and labels do this automatically.
 
 Resolution starts with a direct source `Color`, otherwise sends the source color value or resolved weight through `colorScale`. It then merges base, hovered, selected, focused, and node-specific appearances in that order.
 
@@ -746,8 +781,9 @@ Construction rejects reversed, non-finite, or overlapping ranges. Its `minimum` 
 
 **`TreemapColorScale.interpolated / TreemapInterpolatedColorScale`** - continuous linear interpolation across two or more colors.
 
-- `minimum` - required finite lower domain bound.
-- `maximum` - required finite upper bound greater than `minimum`.
+- `minimum` - lower domain bound; defaults to `double.negativeInfinity` to infer it from data.
+- `maximum` - upper domain bound; defaults to `double.infinity` to infer it from data.
+- `domainScope` - `TreemapColorDomainScope.global` by default, or `.visible` to use current visible tiles.
 - `colors` - required list of at least two ordered color stops.
 - `fallback` - required color for non-numeric or non-finite input.
 - `labelFormatter` - formats legend stop values; defaults to one fractional digit.
@@ -756,8 +792,9 @@ Finite numeric input is clamped to the domain, then interpolated between adjacen
 
 **`TreemapColorScale.saturation / TreemapSaturationColorScale`** - continuous numeric scale that varies one base hue's saturation.
 
-- `minimum` - required finite lower domain bound.
-- `maximum` - required finite upper bound greater than `minimum`.
+- `minimum` - lower domain bound; defaults to `double.negativeInfinity` to infer it from data.
+- `maximum` - upper domain bound; defaults to `double.infinity` to infer it from data.
+- `domainScope` - `TreemapColorDomainScope.global` by default, or `.visible` to use current visible tiles.
 - `color` - required base color whose hue and lightness are retained.
 - `minimumSaturation` - saturation at the lower bound; defaults to `0.15`.
 - `maximumSaturation` - saturation at the upper bound; defaults to `1`.
@@ -765,6 +802,50 @@ Finite numeric input is clamped to the domain, then interpolated between adjacen
 - `labelFormatter` - formats the two endpoint labels.
 
 Numeric input is clamped to the domain. Saturation values must remain in an ordered `0` to `1` range.
+
+**Automatic continuous domains** - omit either bound independently on interpolated or saturation scales. For example, `minimum: 0` keeps a fixed lower bound while the upper bound follows data.
+
+```dart
+final scale = TreemapColorScale.interpolated(
+  colors: const [Colors.blue, Colors.red],
+  fallback: Colors.grey,
+  domainScope: TreemapColorDomainScope.visible,
+);
+final appearance = TreemapAppearanceResolver<String>(colorScale: scale);
+
+TreemapChart<String>(
+  root: root,
+  layout: const TreemapLayoutConfig(maxVisibleDepth: 1),
+  tiles: TreemapTiles(appearance: appearance),
+  labels: TreemapCanvasLabels(appearance: appearance),
+  surrounding: TreemapLegend(
+    scale: scale,
+    config: const TreemapLegendConfig.bar(),
+  ),
+);
+```
+
+- `global` includes every source branch and leaf beneath the container root, including hidden descendants. The root and generated aggregate tiles are excluded. Zoom, visible depth, and viewport changes preserve this domain; source updates recalculate it.
+- `visible` includes every target tile with nonempty bounds and positive opacity, including ancestor backgrounds and generated aggregates. It follows focus-relative `maxVisibleDepth`, zoom, culling, aggregation, and viewport size. Transitions use the destination domain, excluding outgoing tiles.
+- Each candidate contributes its finite numeric `color`, or its effective weight when `color` is absent. Branch weights are descendant totals; aggregates use their combined weights. Direct Flutter colors and nonnumeric/non-finite inputs do not contribute.
+- Equal inferred bounds use the midpoint color and one legend entry. Values below or above that bound use the corresponding endpoint. If an inferred bound crosses a fixed bound, the domain collapses at the fixed bound.
+- No eligible values produces fallback colors, null resolved bounds, and no legend entries. An empty continuous bar reserves its configured footprint.
+- Both explicitly finite bounds must remain strictly increasing. NaN and the opposite infinity signs are rejected.
+
+Scales remain immutable and can be shared across charts. The built-in layers resolve them automatically through `visual.presentation.resolveColorScale(scale)`. Custom layers can use that same method and pass its result as `resolvedScale` to the appearance resolver.
+
+**`scale.resolveDomain(values)`** - resolves a standalone automatic scale from finite numeric inputs; explicit and custom scales pass through unchanged. For example:
+
+```dart
+final resolved = scale.resolveDomain([15, 30, 55]);
+final color = resolved.colorFor(30);
+final legend = TreemapLegendView<String>(
+  scale: resolved,
+  config: const TreemapLegendConfig.bar(),
+);
+```
+
+A standalone legend can alternatively receive the automatic scale and its chart's `presentation` output. Inside a chart it reads `TreemapPresentationScope` automatically. Reading colors, legend entries, fractions, or samples directly from an unresolved automatic scale throws `StateError`; resolve it first.
 
 **`TreemapLegendEntry`** - presentation-neutral metadata for one discrete value, numeric interval, or continuous stop.
 
@@ -787,7 +868,7 @@ This is the default basis for canvas label color resolution.
 
 - `scale` - scale supplying minimum and maximum.
 - `value` - candidate numeric value.
-- return value - clamped fraction from `0` to `1`; returns `0` for non-numeric values or scales without a continuous domain.
+- return value - clamped fraction from `0` to `1`; returns `0` for non-numeric/non-finite values or scales without a domain, and `0.5` for a value matching a constant domain.
 
 Bar legends use the fraction to position their current-value pointer.
 
@@ -887,7 +968,8 @@ TreemapChart<String>(
 - `selectedEntries` - immutable source and aggregate selection identities.
 - `selectedKeys` - source-domain keys only; generated aggregate selections are excluded.
 - `hoveredKey` - current source or aggregate hover identity.
-- `hoveredColor` - source color/scale input associated with hover, used by bar legends.
+- `hoveredColor` - input supplied with the last hover interaction, refreshed for surviving source nodes on source updates. For layout-aware values (including generated aggregates and hidden nodes), use `presentation.hoveredColor`.
+- `synchronize(root, {notify})` - updates navigation and interaction against source data; notifies listeners by default. The chart suppresses notification while synchronizing its input during build. This method does not compute color domains.
 - `zoomTo(key)` - focuses a source branch.
 - `zoomIn([key])` - focuses an explicit key or the hovered/selected source node.
 - `zoomOut()` - focuses the previous path entry.
@@ -1071,15 +1153,16 @@ Use the config's separator builder to replace it with an icon or localized glyph
 - `scale` - required scale supplying colors, entries, and optional continuous domain.
 - `config` - required discrete or bar legend configuration.
 
-It implements both surrounding contracts and creates `TreemapLegendView<K>` with the active chart controller. A bar pointer follows `controller.hoveredColor`; a discrete legend does not require controller state. `config.position` controls direct layer placement but is ignored in favor of the selected grid slot when used inside `TreemapSurroundingGrid`.
+It implements both surrounding contracts and creates `TreemapLegendView<K>`, which reads chart-owned presentation state. Its colors, labels, and pointer use the same destination domain and effective hover input as the tiles. `config.position` controls direct layer placement but is ignored in favor of the selected grid slot when used inside `TreemapSurroundingGrid`.
 
 **`TreemapLegendView<K>`** - standalone legend renderer for use inside or outside a chart.
 
 - `scale` - required color scale.
 - `config` - required legend structure and builders.
-- `controller` - optional controller used to move a bar pointer from hover values.
+- `presentation` - optional immutable chart output, normally obtained through `onPresentationChanged`. If omitted, the nearest `TreemapPresentationScope` is used.
+- `controller` - optional hover source used only when no presentation state is available. It does not resolve automatic bounds.
 
-Without a controller, a bar legend still renders its colors and labels but has no current-value pointer.
+Without presentation state, supply a finite or explicitly resolved scale. Such a bar legend can still render its colors and labels; supplying a controller also enables its hover pointer.
 
 **`TreemapLegendConfig.discrete`** - configures separate legend items for exact values, categories, or numeric ranges.
 

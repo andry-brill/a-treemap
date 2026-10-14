@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'config.dart';
 import 'inputs.dart';
+import 'padding_input.dart';
+import 'padding_values.dart';
 import 'store.dart';
 import 'structured_editor.dart';
 
@@ -20,7 +22,9 @@ class PropertyEditorField extends StatelessWidget {
     final enabled = property.enabled(store.preview);
     final error = store.errors[property.key];
     final raw = store.rawDraft(property.key) ?? property.encodeValue(value);
-    final fieldKey = ValueKey('field-${property.key}');
+    final propertyKey = property.padding?.key ?? property.key;
+    final label = property.padding?.label ?? property.label;
+    final fieldKey = ValueKey('field-$propertyKey');
     Widget control;
     switch (property.editor) {
       case PropertyEditor.toggle:
@@ -58,6 +62,30 @@ class PropertyEditorField extends StatelessWidget {
           ),
         );
       case PropertyEditor.number:
+        if (property.padding case final padding?) {
+          final values = paddingKeys(
+            padding.key,
+          ).map(store.preview.number).toList();
+          control = PaddingInput(
+            raw: store.paddingDraft(padding.key) ?? formatPaddingValues(values),
+            value: EdgeInsets.fromLTRB(
+              values[0],
+              values[1],
+              values[2],
+              values[3],
+            ),
+            label: padding.label,
+            error: store.errors[padding.key],
+            enabled: enabled,
+            minimum: property.minimum!.toInt(),
+            maximum: property.maximum!.toInt(),
+            fieldKey: fieldKey,
+            sliderKey: ValueKey('slider-${padding.key}'),
+            onChanged: (raw) => store.draftPadding(padding.key, raw),
+            onCommit: () => store.commitPadding(padding.key),
+          );
+          break;
+        }
         control = Column(
           children: [
             if (property.nullLabel != null)
@@ -215,7 +243,7 @@ class PropertyEditorField extends StatelessWidget {
       ),
     );
     return Padding(
-      key: ValueKey('property-${property.key}'),
+      key: ValueKey('property-$propertyKey'),
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -224,12 +252,12 @@ class PropertyEditorField extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  property.label,
+                  label,
                   style: Theme.of(context).textTheme.labelLarge,
                 ),
               ),
               if (property.editor == PropertyEditor.toggle) control,
-              PropertyHelp(label: property.label, message: property.help),
+              PropertyHelp(label: label, message: property.help),
             ],
           ),
           if (property.editor != PropertyEditor.toggle) control,

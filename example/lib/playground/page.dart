@@ -9,6 +9,7 @@ import 'inputs.dart';
 import 'presets.dart';
 import 'preview.dart';
 import 'property_editor.dart';
+import 'padding_values.dart';
 import 'store.dart';
 
 class PlaygroundPage extends StatelessWidget {
@@ -136,10 +137,11 @@ class _PropertyPanelState extends State<PropertyPanel> {
     for (final field in playgroundProperties.where(
       (field) => field.key != 'data',
     )) {
-      if (_search.isNotEmpty &&
-          !('${field.label} ${field.key} ${field.help}').toLowerCase().contains(
-            _search,
-          )) {
+      final padding = field.padding;
+      if (padding != null && field.key != '${padding.key}.left') continue;
+      final searchText =
+          '${field.label} ${field.key} ${field.help} ${padding?.label ?? ''} ${padding == null ? '' : paddingKeys(padding.key).join(' ')}';
+      if (_search.isNotEmpty && !searchText.toLowerCase().contains(_search)) {
         continue;
       }
       groups.putIfAbsent(field.group, () => []).add(field);

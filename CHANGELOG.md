@@ -2,6 +2,10 @@
 
 ## 2.0.0
 
+- Grouped playground padding controls into one whole-number input supporting
+  all-sides, horizontal/vertical and left/top/right/bottom comma-separated forms.
+  Equal sides share an integer slider; unequal or invalid values disable it.
+  Padding edits commit all four existing URL parameters together.
 - Added opt-in `TreemapSingleChildPolicy.promote` to normalization. Non-root
   single-child branches and repeated chains are replaced before the prepared
   tree is used. The root and child metadata are preserved; removed parent

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'config.dart';
 import 'location.dart';
 import 'presets.dart';
+import 'padding_values.dart';
 
 enum HistoryIntent { replace, push }
 
@@ -16,6 +17,7 @@ final class PlaygroundStore extends ChangeNotifier {
   late PlaygroundConfig _preview;
   final _drafts = <String, Object?>{};
   final _rawDrafts = <String, String>{};
+  final _paddingDrafts = <String, String>{};
   final _errors = <String, String>{};
   int resetGeneration = 0;
   int formGeneration = 0;
@@ -27,7 +29,24 @@ final class PlaygroundStore extends ChangeNotifier {
   String? get exampleKey => _location.exampleKey;
   Map<String, String> get errors => Map.unmodifiable(_errors);
   String? rawDraft(String key) => _rawDrafts[key];
-  bool get hasDrafts => _rawDrafts.isNotEmpty;
+  String? paddingDraft(String prefix) => _paddingDrafts[prefix];
+  bool get hasDrafts => _rawDrafts.isNotEmpty || _paddingDrafts.isNotEmpty;
+
+  void draftPadding(String prefix, String raw) {
+    for (final key in paddingKeys(prefix)) {
+      _rawDrafts.remove(key);
+    }
+    _paddingDrafts[prefix] = raw;
+    _rebuildDrafts();
+    historyIntent = HistoryIntent.replace;
+    notifyListeners();
+  }
+
+  void commitPadding(String prefix) {
+    final keys = paddingKeys(prefix);
+    if (_errors.containsKey(prefix) || !keys.every(_drafts.containsKey)) return;
+    _commitDrafts({for (final key in keys) key: _drafts[key]});
+  }
 
   void restore(PlaygroundLocation value) {
     _location = value;
@@ -110,6 +129,22 @@ final class PlaygroundStore extends ChangeNotifier {
             : 'Invalid value.';
       }
     }
+    for (final entry in _paddingDrafts.entries) {
+      try {
+        final field = propertiesByKey['${entry.key}.left']!;
+        final values = parsePaddingValues(
+          entry.value,
+          minimum: field.minimum!.toInt(),
+          maximum: field.maximum!.toInt(),
+        );
+        final keys = paddingKeys(entry.key);
+        for (var i = 0; i < keys.length; i++) {
+          candidates[keys[i]] = values[i].toDouble();
+        }
+      } on FormatException catch (error) {
+        _errors[entry.key] = error.message;
+      }
+    }
     try {
       _preview = committed.withValues(candidates);
       _drafts.addAll(candidates);
@@ -140,6 +175,9 @@ final class PlaygroundStore extends ChangeNotifier {
     for (final key in edits.keys) {
       _rawDrafts.remove(key);
     }
+    _paddingDrafts.removeWhere(
+      (prefix, _) => paddingKeys(prefix).every(edits.containsKey),
+    );
     _commit(next);
   }
 
@@ -174,6 +212,7 @@ final class PlaygroundStore extends ChangeNotifier {
   void _clearDrafts() {
     _drafts.clear();
     _rawDrafts.clear();
+    _paddingDrafts.clear();
     _errors.clear();
     _preview = committed;
   }

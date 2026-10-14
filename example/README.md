@@ -2,6 +2,15 @@
 
 Run `flutter run -d chrome` from this directory. The editor has a 360-pixel property panel on desktop and a Properties drawer below 900 pixels. The preview remains bounded and centered. Choose an example, select shared data, then edit individual settings. Search finds properties by label, key, or help text.
 
+Outer, level, label and surrounding padding each use one input. Enter whole
+numbers from 0 to 256: `5` applies to every side, `5,10` means horizontal 5 and
+vertical 10, and `1,2,3,4` means left, top, right and bottom. The slider changes
+all four sides together and is disabled for unequal values or invalid drafts.
+Equal sides display as one value after committing the edit. Text commits on
+Enter or blur; slider drags commit on release. Shared links retain the existing
+four side parameters and support fractional values supplied through URLs;
+new padding input uses whole numbers.
+
 ## Shared links
 
 - `?example=appearance-auto-visible` loads a complete preset, including its dataset.

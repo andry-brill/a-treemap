@@ -112,6 +112,7 @@ List<PlaygroundProperty> propertyDefinitions() {
     double? min = 0,
     double? max,
     bool integer = false,
+    ({String key, String label})? padding,
     String? nullLabel,
     bool Function(PlaygroundConfig)? available,
     String? reason,
@@ -125,6 +126,7 @@ List<PlaygroundProperty> propertyDefinitions() {
       min: min,
       max: max,
       integer: integer,
+      padding: padding,
       nullLabel: nullLabel,
       available: available,
       reason: reason,
@@ -157,8 +159,16 @@ List<PlaygroundProperty> propertyDefinitions() {
     String help,
     double value,
   ) {
-    for (final side in ['left', 'top', 'right', 'bottom']) {
-      n('$prefix.$side', '$label · $side', group, help, value, max: 256);
+    for (final side in paddingSides) {
+      n(
+        '$prefix.$side',
+        '$label · $side',
+        group,
+        '$help Enter one whole number for all sides; two for horizontal, vertical; or four for left, top, right, bottom. Use commas. The slider adjusts equal sides together.',
+        value,
+        max: 256,
+        padding: (key: prefix, label: label),
+      );
     }
   }
 

@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'padding_values.dart';
+
 part 'properties.dart';
 
 enum PropertyEditor {
@@ -36,6 +38,7 @@ final class PlaygroundProperty<T> {
     this.nullLabel,
     this.available,
     this.unavailableReason,
+    this.padding,
   });
 
   final String key;
@@ -52,6 +55,9 @@ final class PlaygroundProperty<T> {
   final String? nullLabel;
   final bool Function(PlaygroundConfig)? available;
   final String? unavailableReason;
+
+  /// Groups four numeric wire properties into one form control.
+  final ({String key, String label})? padding;
 
   String encodeValue(Object? value) => encode(value as T);
   Object? parse(String value) => decode(value);
@@ -236,6 +242,7 @@ PlaygroundProperty<double?> numeric(
   double? min = 0,
   double? max,
   bool integer = false,
+  ({String key, String label})? padding,
   String? nullLabel,
   bool Function(PlaygroundConfig)? available,
   String? reason,
@@ -245,6 +252,7 @@ PlaygroundProperty<double?> numeric(
   group: group,
   help: help,
   editor: PropertyEditor.number,
+  padding: padding,
   defaultValue: value,
   minimum: min,
   maximum: max,

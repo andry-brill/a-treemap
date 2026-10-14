@@ -68,6 +68,7 @@ List<PlaygroundProperty> propertyDefinitions() {
     String help,
     String value,
     List<String> options, {
+    Map<String, String> labels = const {},
     bool Function(PlaygroundConfig)? available,
     String? reason,
   }) => fields.add(
@@ -78,6 +79,7 @@ List<PlaygroundProperty> propertyDefinitions() {
       help,
       value,
       options,
+      labels: labels,
       available: available,
       reason: reason,
     ),
@@ -198,6 +200,15 @@ List<PlaygroundProperty> propertyDefinitions() {
     'Hierarchy keeps source branches; level2 promotes their children; flat promotes all leaves.',
     'hierarchy',
     ['hierarchy', 'level2', 'flat'],
+  );
+  c(
+    'data.singleChildPolicy',
+    'Single-child branches',
+    'Data',
+    'Promote replaces single-child branches before the tree is used. Children keep their metadata; removed parents lose theirs. The root is preserved; paths and depths reflect the resulting hierarchy.',
+    'preserve',
+    ['preserve', 'promote'],
+    labels: {'preserve': 'Preserve', 'promote': 'Promote'},
   );
   n(
     'data.revision',

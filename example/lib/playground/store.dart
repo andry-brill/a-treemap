@@ -150,7 +150,11 @@ final class PlaygroundStore extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    if (next.text('data') != committed.text('data')) resetGeneration++;
+    if (next.text('data') != committed.text('data') ||
+        next.text('data.singleChildPolicy') !=
+            committed.text('data.singleChildPolicy')) {
+      resetGeneration++;
+    }
     _location = PlaygroundLocation(config: next, path: _location.path);
     _rebuildDrafts();
     historyIntent = HistoryIntent.push;

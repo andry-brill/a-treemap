@@ -184,10 +184,11 @@ final appearanceScenarios = <ExamplePreset>[
     title: "Automatic saturation bounds",
     category: "Color scales",
     description:
-        "Automatic global bounds control indigo saturation and the matching legend.",
+        "Automatic global bounds control indigo saturation and the legend. Preparation promotes B's only child Sixty (60); clicking it stays at the root.",
     dataKey: "color-domain",
     overrides: {
       "color.scale": "saturation",
+      "data.singleChildPolicy": "promote",
       "legend.enabled": true,
       "legend.title": "Inferred domain",
       "layout.maxVisibleDepth": 1,

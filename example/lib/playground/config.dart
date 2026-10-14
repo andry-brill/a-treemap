@@ -137,6 +137,7 @@ final class PlaygroundConfig {
       'data.construction',
       'data.count',
       'data.grouping',
+      'data.singleChildPolicy',
       'data.revision',
       'color.input',
     ])
@@ -205,6 +206,7 @@ PlaygroundProperty<String> choice(
   String help,
   String value,
   List<String> options, {
+  Map<String, String> labels = const {},
   bool Function(PlaygroundConfig)? available,
   String? reason,
 }) => PlaygroundProperty(
@@ -214,7 +216,9 @@ PlaygroundProperty<String> choice(
   help: help,
   editor: PropertyEditor.choice,
   defaultValue: value,
-  choices: {for (final option in options) option: _humanize(option)},
+  choices: {
+    for (final option in options) option: labels[option] ?? _humanize(option),
+  },
   encode: (value) => value,
   decode: (raw) => options.contains(raw)
       ? raw

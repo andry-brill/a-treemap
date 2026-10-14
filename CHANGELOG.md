@@ -2,6 +2,15 @@
 
 ## 2.0.0
 
+- Added opt-in `TreemapSingleChildPolicy.promote` to normalization. Non-root
+  single-child branches and repeated chains are replaced before the prepared
+  tree is used. The root and child metadata are preserved; removed parent
+  metadata, keys and colors are discarded. Navigation, breadcrumbs, layout
+  depths and color domains use only the resulting hierarchy. The default
+  `preserve` policy retains existing behavior, and all input is validated first.
+- Added the playground's Single-child branches control and
+  `data-single-child-promotion` preset. Automatic saturation now promotes B's
+  only child Sixty, so its 60 tile stays at the root when clicked.
 - **Breaking:** all chart, controller, layout and standalone presentation inputs
   now share a `TreemapNormalizedTree` prepared explicitly with
   `TreemapNormalizer.normalize`. Validation, indexes, branch totals and global

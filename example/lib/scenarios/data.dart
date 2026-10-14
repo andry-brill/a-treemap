@@ -2,6 +2,19 @@ import '../scenario.dart';
 
 final dataScenarios = <ExamplePreset>[
   ExamplePreset(
+    id: 'data-single-child-promotion',
+    title: 'Promote single-child branches',
+    category: 'Data',
+    description:
+        'Preparation replaces B with its only child Sixty (60). A keeps Ten and Thirty. Switch Single-child branches to Preserve to restore B and its breadcrumb level.',
+    dataKey: 'color-domain',
+    overrides: {
+      'data.singleChildPolicy': 'promote',
+      'layout.maxVisibleDepth': 1,
+      'breadcrumbs.enabled': true,
+    },
+  ),
+  ExamplePreset(
     id: 'data-prepared-tree',
     title: 'One prepared tree, two charts',
     category: 'Data',

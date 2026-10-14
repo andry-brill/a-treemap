@@ -70,7 +70,12 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
     if (!_prepared) {
       _prepared = true;
       try {
-        _tree = TreemapNormalizer.normalize(_root);
+        _tree = TreemapNormalizer.normalize(
+          _root,
+          singleChildPolicy: TreemapSingleChildPolicy.values.byName(
+            widget.config.text('data.singleChildPolicy'),
+          ),
+        );
       } catch (error) {
         _sourceError = error.toString();
       }
@@ -98,7 +103,10 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
   @override
   void didUpdateWidget(covariant PlaygroundPreview oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final reset = widget.resetGeneration != oldWidget.resetGeneration;
+    final reset =
+        widget.resetGeneration != oldWidget.resetGeneration ||
+        widget.config.text('data.singleChildPolicy') !=
+            oldWidget.config.text('data.singleChildPolicy');
     final dataChanged =
         widget.config.dataSignature != oldWidget.config.dataSignature;
     final selectionLimitChanged =
@@ -642,10 +650,15 @@ class _ComparisonPaneState extends State<ComparisonPane> {
   @override
   void didUpdateWidget(covariant ComparisonPane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.resetGeneration != oldWidget.resetGeneration ||
+    final policyChanged =
+        widget.config.text('data.singleChildPolicy') !=
+        oldWidget.config.text('data.singleChildPolicy');
+    if (policyChanged ||
+        widget.resetGeneration != oldWidget.resetGeneration ||
         widget.config.optionalNumber('selection.maximum') !=
             oldWidget.config.optionalNumber('selection.maximum')) {
-      final reset = widget.resetGeneration != oldWidget.resetGeneration;
+      final reset =
+          policyChanged || widget.resetGeneration != oldWidget.resetGeneration;
       final focus = reset ? null : _controller.focusKey?.sourceKey;
       final selected = reset ? null : _controller.selectedEntries;
       _controller.dispose();

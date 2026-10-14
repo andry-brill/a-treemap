@@ -300,32 +300,37 @@ final class TreemapNormalizedTree<K> {
       'depth: ${depths.values.fold<int>(0, (a, b) => a > b ? a : b)})';
 }
 
-/// Validates and indexes an immutable hierarchy for efficient layout access.
+/// Controls whether preparation removes branches with exactly one child.
+enum TreemapSingleChildPolicy {
+  /// Retains every source branch.
+  preserve,
+
+  /// Replaces non-root single-child branches with their children.
+  ///
+  /// Repeated chains collapse. Children retain their own identity and metadata;
+  /// removed parents are absent from the prepared hierarchy and its indexes.
+  promote,
+}
+
+/// Validates, prepares and indexes an immutable hierarchy for layout access.
 abstract final class TreemapNormalizer {
-  static TreemapNormalizedTree<K> normalize<K>(TreemapNode<K> root) {
+  /// Validates the complete input before applying [singleChildPolicy].
+  ///
+  /// Promotion preserves the container root and sibling order. Parent metadata
+  /// is discarded, including colors; all indexes and domains describe only the
+  /// resulting hierarchy. The caller-owned input is never mutated.
+  static TreemapNormalizedTree<K> normalize<K>(
+    TreemapNode<K> root, {
+    TreemapSingleChildPolicy singleChildPolicy =
+        TreemapSingleChildPolicy.preserve,
+  }) {
     final issues = <TreemapValidationIssue<K>>[];
-    final nodes = <K, TreemapNode<K>>{};
-    final parents = <K, K?>{};
-    final depths = <K, int>{};
-    final totals = <K, double>{};
+    final sourceNodes = <K, TreemapNode<K>>{};
     final identities = HashSet<TreemapNode<K>>.identity();
-    final stack = <({TreemapNode<K> node, K? parent, int depth, bool visited})>[
-      (node: root, parent: null, depth: 0, visited: false),
-    ];
+    final stack = [root];
 
     while (stack.isNotEmpty) {
-      final frame = stack.removeLast();
-      final node = frame.node;
-      if (frame.visited) {
-        totals[node.key] = node.children.isEmpty
-            ? node.weight
-            : node.children.fold<double>(
-                0,
-                (sum, child) => sum + (totals[child.key] ?? 0),
-              );
-        continue;
-      }
-
+      final node = stack.removeLast();
       if (!identities.add(node)) {
         issues.add(
           TreemapValidationIssue<K>(
@@ -348,7 +353,7 @@ abstract final class TreemapNormalizer {
           ),
         );
       }
-      if (nodes.containsKey(node.key)) {
+      if (sourceNodes.containsKey(node.key)) {
         issues.add(
           TreemapValidationIssue<K>(
             code: TreemapValidationCode.duplicateKey,
@@ -357,7 +362,6 @@ abstract final class TreemapNormalizer {
             correction: 'Use globally unique opaque keys.',
           ),
         );
-        continue;
       }
       if (!node.weight.isFinite || node.weight < 0) {
         issues.add(
@@ -370,26 +374,67 @@ abstract final class TreemapNormalizer {
         );
       }
 
-      nodes[node.key] = node;
-      parents[node.key] = frame.parent;
-      depths[node.key] = frame.depth;
-      stack.add((
-        node: node,
+      sourceNodes[node.key] = node;
+      stack.addAll(node.children.reversed);
+    }
+
+    if (issues.isNotEmpty) throw TreemapValidationException<K>(issues);
+    if (singleChildPolicy == TreemapSingleChildPolicy.promote) {
+      final promoted = <K, TreemapNode<K>>{};
+      // Reverse preorder visits every child before its parent without recursion.
+      for (final node in sourceNodes.values.toList().reversed) {
+        if (!identical(node, root) && node.children.length == 1) {
+          promoted[node.key] = promoted[node.children.single.key]!;
+          continue;
+        }
+        final children = [
+          for (final child in node.children) promoted[child.key]!,
+        ];
+        final changed = node.children.indexed.any(
+          (entry) => !identical(entry.$2, children[entry.$1]),
+        );
+        promoted[node.key] = changed ? node.copyWith(children: children) : node;
+      }
+      root = promoted[root.key]!;
+    }
+
+    final nodes = <K, TreemapNode<K>>{};
+    final parents = <K, K?>{};
+    final depths = <K, int>{};
+    final totals = <K, double>{};
+    final pending =
+        <({TreemapNode<K> node, K? parent, int depth, bool visited})>[
+          (node: root, parent: null, depth: 0, visited: false),
+        ];
+    while (pending.isNotEmpty) {
+      final frame = pending.removeLast();
+      if (frame.visited) {
+        totals[frame.node.key] = frame.node.children.isEmpty
+            ? frame.node.weight
+            : frame.node.children.fold<double>(
+                0,
+                (sum, child) => sum + totals[child.key]!,
+              );
+        continue;
+      }
+      nodes[frame.node.key] = frame.node;
+      parents[frame.node.key] = frame.parent;
+      depths[frame.node.key] = frame.depth;
+      pending.add((
+        node: frame.node,
         parent: frame.parent,
         depth: frame.depth,
         visited: true,
       ));
-      for (final child in node.children.reversed) {
-        stack.add((
+      for (final child in frame.node.children.reversed) {
+        pending.add((
           node: child,
-          parent: node.key,
+          parent: frame.node.key,
           depth: frame.depth + 1,
           visited: false,
         ));
       }
     }
-
-    if (issues.isNotEmpty) throw TreemapValidationException<K>(issues);
     double? minimum;
     double? maximum;
     for (final node in nodes.values) {

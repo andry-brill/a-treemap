@@ -6,6 +6,7 @@ Every public feature and meaningfully different variant retains representative c
 
 | Feature or meaningful variant | Scenario | Source | What to try |
 |---|---|---|---|
+| Normalization-time single-child promotion, child identity and final hierarchy paths | `data-single-child-promotion` | `lib/scenarios/data.dart` | B is replaced by Sixty (60); A keeps Ten and Thirty. Switch Single-child branches to Preserve to restore B and its breadcrumb level. |
 | Prepared source reuse with independent navigation, interaction and visible domains | `data-prepared-tree` | `lib/scenarios/data.dart` | Drill into A in one chart; both share one prepared tree, while only that chart changes to 10–30. |
 | Explicit immutable hierarchy | `data-explicit-tree` | `lib/scenarios/data.dart` | Six weighted leaves form Consumer 100 and Business 80. Tile area follows weight. |
 | Flat records and grouping factory | `data-from-records` | `lib/scenarios/data.dart` | Four sales records use fromRecords to create North 85 and South 56. |
@@ -36,7 +37,7 @@ Every public feature and meaningfully different variant retains representative c
 | Automatic global interpolation, infinity defaults, branch totals, weight-based hover pointer, and data updates | `appearance-auto-global` | `lib/scenarios/appearance.dart` | Bounds stay 10–60 across depth changes and zoom. Revision 1 changes the maximum to 100. |
 | Automatic visible interpolation, depth limits, focus, and destination-domain transitions | `appearance-auto-visible` | `lib/scenarios/appearance.dart` | Depth 1 gives 40–60; depth 2 gives 10–60. Drill into A for 10–30. |
 | Independently fixed and automatic minimum/maximum | `appearance-auto-mixed-bounds` | `lib/scenarios/appearance.dart` | Minimum stays fixed at 0 while the maximum follows data. Set maximum to 100 and minimum to Auto to reverse the override. |
-| Automatic saturation and shared domain/legend updates | `appearance-auto-saturation` | `lib/scenarios/appearance.dart` | Automatic global bounds control indigo saturation and the matching legend. |
+| Automatic saturation and shared domain/legend updates | `appearance-auto-saturation` | `lib/scenarios/appearance.dart` | Global bounds control indigo saturation and the legend. B is promoted to Sixty (60); clicking it stays at the root. |
 | Standalone resolveDomain, controller-free legend, and custom appearance resolvedScale | `appearance-auto-standalone` | `lib/scenarios/appearance.dart` | A manually resolved domain of 15–55 drives custom tiles and a standalone legend. |
 | Chart-owned presentation, keyed actions, custom tiles, scope, fromData and external legend callback | `appearance-presentation-state` | `lib/scenarios/appearance.dart` | Focus/Activate buttons send chart actions; custom tiles, scoped text and an external legend read the same presentation. |
 | Explicit tiles, optimized bounded canvas labels, configurable/freely built lines, fallbacks, numeric precision, styles, opacity, color resolver, ellipsis, scale, gradients, borders, radius, and state resolver | `appearance-gradients-states` | `lib/scenarios/appearance.dart` | Hover and select tiles to compare gradients, borders and opacity. Custom canvas lines include depth. |

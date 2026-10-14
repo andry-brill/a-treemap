@@ -7,8 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('every existing preset expands and round-trips every property', () {
-    expect(allPresets, hasLength(51));
-    expect(presetsByKey, hasLength(51));
+    expect(allPresets, hasLength(52));
+    expect(presetsByKey, hasLength(52));
     expect(propertiesByKey, hasLength(playgroundProperties.length));
     expect(datasetKeys, unorderedEquals(datasetsByKey.keys));
     for (final preset in allPresets) {
@@ -26,7 +26,12 @@ void main() {
       expect(custom.uri.queryParameters.length, playgroundProperties.length);
       if (preset.dataKey != 'invalid-weight') {
         expect(
-          () => TreemapNormalizer.normalize(createData(expanded)),
+          () => TreemapNormalizer.normalize(
+            createData(expanded),
+            singleChildPolicy: TreemapSingleChildPolicy.values.byName(
+              expanded.text('data.singleChildPolicy'),
+            ),
+          ),
           returnsNormally,
           reason: preset.id,
         );

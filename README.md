@@ -33,7 +33,7 @@ flutter pub get
 flutter run -d chrome
 ```
 
-The **Example** chooser loads one of 51 named presets. **Data** selects a shared dataset, and the property panel controls layout, colors, visual layers, interaction, accessibility, animation, and preview dimensions. Property info buttons explain each setting. On narrow screens, open **Properties** from the toolbar.
+The **Example** chooser loads one of 52 named presets. **Data** selects a shared dataset, and the property panel controls layout, colors, visual layers, interaction, accessibility, animation, and preview dimensions. Property info buttons explain each setting. On narrow screens, open **Properties** from the toolbar.
 
 Preset links contain only an example key, such as `?example=appearance-auto-visible`. Editing any property switches to **Custom** and puts the complete configuration, including `data`, in the URL. **Copy link** includes valid pending edits. Browser Back/Forward restores committed changes; navigation, current selection, hover, and tooltips remain temporary.
 
@@ -219,15 +219,36 @@ The mappers receive the first record in a group. The class describes group nodes
 
 Create domain identities with `TreemapKey.source(key)`. The layout engine creates `TreemapKey.aggregate` values when minimum-node aggregation combines siblings. Selection uses `TreemapKey<K>` so aggregates never need fake domain keys.
 
-**`TreemapNormalizer.normalize<K>(root)`** - validates a source hierarchy and derives the indexes needed by the layout engine.
+**`TreemapNormalizer.normalize<K>(root, {singleChildPolicy})`** - validates and prepares a source hierarchy, then derives the indexes needed by the layout engine.
 
 - `root` - the immutable `TreemapNode<K>` hierarchy to validate and index.
+- `singleChildPolicy` - `TreemapSingleChildPolicy.preserve` by default; `promote` replaces each non-root branch with exactly one source child by that child, including repeated chains.
 
-Normalization checks all nodes in one traversal, calculates descendant totals after their children, and throws one `TreemapValidationException<K>` containing every detected issue.
+Normalization validates the complete input before promotion and throws one `TreemapValidationException<K>` containing every detected issue. Preparation is iterative and linear in node count. Descendant totals and color extrema are calculated from the resulting hierarchy.
+
+```dart
+final tree = TreemapNormalizer.normalize(
+  root,
+  singleChildPolicy: TreemapSingleChildPolicy.promote,
+);
+```
+
+For `All → [A → [Ten, Thirty], B → [Sixty]]`, promotion produces
+`All → [A → [Ten, Thirty], Sixty]`. The container root and sibling order are
+preserved. The promoted child retains its own key, weight, labels, color and
+payload; parent metadata is discarded, even when the child's fields are null.
+The input remains untouched. Eligibility counts all source children, including
+zero-weight children, independently of viewport visibility and aggregation.
+
+The returned tree contains only the resulting hierarchy. Removed keys have no
+aliases or hidden ancestry; navigation, selection, breadcrumbs, parent/depth
+layout rules and global color bounds all use the prepared nodes. Prepare again
+when data or the promotion policy changes. In the playground, use **Data →
+Single-child branches** or load `?example=data-single-child-promotion`.
 
 **`TreemapNormalizedTree<K>`** - validated, indexed representation returned by `TreemapNormalizer`.
 
-- `root` - original hierarchy root.
+- `root` - prepared hierarchy root, retaining the supplied root's key and metadata.
 - `nodes` - unmodifiable source-key-to-node index.
 - `parents` - unmodifiable source-key-to-parent-key index; the root maps to null.
 - `depths` - unmodifiable absolute source depth for every node.

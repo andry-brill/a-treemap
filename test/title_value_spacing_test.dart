@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:any_treemap/any_treemap.dart';
@@ -40,14 +39,23 @@ final _tree = TreemapNormalizer.normalize(
   ),
 );
 
-typedef _Pixels = ({Rect? title, Rect? value, Uint8List bytes});
+/// Record the real TextPainter output before host-specific glyph rasterization.
+/// Ink can extend outside a paragraph's origin and be clipped at the canvas edge;
+/// measuring its colored pixels would conflate those effects with label layout.
+final class _ParagraphCanvas extends TestRecordingCanvas {
+  final List<Rect> paragraphs = [];
 
-Future<_Pixels> _paint(
-  WidgetTester tester, {
+  @override
+  void drawParagraph(ui.Paragraph paragraph, Offset offset) {
+    paragraphs.add(offset & Size(paragraph.longestLine, paragraph.height));
+  }
+}
+
+List<Rect> _paint({
   TreemapLabelConfig<String> config = _config,
   TreemapParentLabelConfig? parent,
   Size size = const Size(100, 100),
-}) async {
+}) {
   final bounds = TreemapBounds.fromLTWH(0, 0, size.width, size.height);
   final node = TreemapGeometryNode<String>(
     key: _parent,
@@ -60,7 +68,7 @@ Future<_Pixels> _paint(
     parentKey: null,
     opacity: 1,
   );
-  final recorder = ui.PictureRecorder();
+  final canvas = _ParagraphCanvas();
   TreemapCanvasLabelPainter<String>(
     nodes: [node],
     details: {_parent: TreemapNodeDetails(geometry: node, path: [])},
@@ -77,38 +85,8 @@ Future<_Pixels> _paint(
     textScaler: TextScaler.noScaling,
     locale: null,
     textCache: TreemapTextLayoutCache(),
-  ).paint(Canvas(recorder), size);
-  final picture = recorder.endRecording();
-  final bytes = await tester.runAsync(() async {
-    final image = await picture.toImage(
-      size.width.toInt(),
-      size.height.toInt(),
-    );
-    final data = (await image.toByteData(
-      format: ui.ImageByteFormat.rawRgba,
-    ))!.buffer.asUint8List();
-    image.dispose();
-    return data;
-  });
-  picture.dispose();
-  Rect? coloredBounds(int channel) {
-    Rect? result;
-    final width = size.width.toInt();
-    for (var y = 0; y < size.height; y++) {
-      for (var x = 0; x < width; x++) {
-        final offset = (y * width + x) * 4;
-        if (bytes![offset + 3] == 0 ||
-            bytes[offset + channel] <= bytes[offset + (channel == 0 ? 2 : 0)]) {
-          continue;
-        }
-        final pixel = Rect.fromLTWH(x.toDouble(), y.toDouble(), 1, 1);
-        result = result?.expandToInclude(pixel) ?? pixel;
-      }
-    }
-    return result;
-  }
-
-  return (title: coloredBounds(0), value: coloredBounds(2), bytes: bytes!);
+  ).paint(canvas, size);
+  return canvas.paragraphs;
 }
 
 final class _CaptureTiles implements TreemapTileLayer<String> {
@@ -161,17 +139,23 @@ void main() {
                     ]
                   : null,
             );
-            final plain = await _paint(tester, config: config, parent: parent);
-            final padded = await _paint(
-              tester,
-              config: config.copyWith(padding: insets),
-              parent: parent,
-            );
-            final offset = alignment == Alignment.topLeft
-                ? const Offset(4, 2)
-                : const Offset(-8, -3);
-            expect(padded.title, plain.title!.shift(offset));
-            expect(padded.value, plain.value!.shift(offset));
+            final plain = _paint(config: config, parent: parent);
+            expect(plain, hasLength(2));
+            for (final padding in [
+              insets,
+              const EdgeInsets.fromLTRB(4.5, 2.5, 8.5, 3.5),
+            ]) {
+              final padded = _paint(
+                config: config.copyWith(padding: padding),
+                parent: parent,
+              );
+              final offset = alignment == Alignment.topLeft
+                  ? Offset(padding.left, padding.top)
+                  : Offset(-padding.right, -padding.bottom);
+              expect(padded, hasLength(2));
+              expect(padded.first, plain.first.shift(offset));
+              expect(padded.last, plain.last.shift(offset));
+            }
           }
           final config = _config.copyWith(
             linesBuilder: custom
@@ -181,21 +165,18 @@ void main() {
                   ]
                 : null,
           );
-          final plain = await _paint(
-            tester,
+          final plain = _paint(
             config: config,
             parent: parent,
             size: const Size(100, 32),
           );
-          expect(plain.title, isNotNull);
-          final omitted = await _paint(
-            tester,
+          expect(plain, hasLength(2));
+          final omitted = _paint(
             config: config.copyWith(padding: insets),
             parent: parent,
             size: const Size(100, 32),
           );
-          expect(omitted.title, isNull);
-          expect(omitted.value, isNull);
+          expect(omitted, isEmpty);
         }
       }
     },
@@ -461,17 +442,21 @@ void main() {
         Alignment.bottomRight,
       ]) {
         final config = _config.copyWith(alignment: alignment);
-        final ordinary = await _paint(tester, config: config, parent: parent);
-        final spaced = await _paint(
-          tester,
-          config: config.copyWith(spacing: 6),
-          parent: parent,
-        );
-        final topShift = -3 * (alignment.y + 1);
-        expect(spaced.title!.top - ordinary.title!.top, topShift);
-        expect(spaced.value!.top - ordinary.value!.top, topShift + 6);
-        expect(spaced.title!.left, ordinary.title!.left);
-        expect(spaced.value!.left, ordinary.value!.left);
+        final ordinary = _paint(config: config, parent: parent);
+        expect(ordinary, hasLength(2));
+        for (final spacing in [.5, 6.0, 6.5]) {
+          final spaced = _paint(
+            config: config.copyWith(spacing: spacing),
+            parent: parent,
+          );
+          final topShift = -spacing / 2 * (alignment.y + 1);
+          expect(spaced, hasLength(2));
+          expect(spaced.first.top - ordinary.first.top, topShift);
+          expect(spaced.last.top - ordinary.last.top, topShift + spacing);
+          expect(spaced.last.top - spaced.first.bottom, spacing);
+          expect(spaced.first.left, ordinary.first.left);
+          expect(spaced.last.left, ordinary.last.left);
+        }
       }
     }
   });
@@ -485,21 +470,22 @@ void main() {
       _config.copyWith(titleFormatter: (_) => ''),
       _config.copyWith(valueFormatter: (_) => ''),
     ]) {
-      final ordinary = await _paint(tester, config: config);
-      final spaced = await _paint(tester, config: config.copyWith(spacing: 80));
-      expect(spaced.bytes, orderedEquals(ordinary.bytes));
+      final ordinary = _paint(config: config);
+      final spaced = _paint(config: config.copyWith(spacing: 80));
+      expect(ordinary, hasLength(1));
+      expect(spaced, orderedEquals(ordinary));
     }
     for (final parent in [
       const TreemapParentLabelConfig(showTitle: false),
       const TreemapParentLabelConfig(showValue: false),
     ]) {
-      final ordinary = await _paint(tester, parent: parent);
-      final spaced = await _paint(
-        tester,
+      final ordinary = _paint(parent: parent);
+      final spaced = _paint(
         config: _config.copyWith(spacing: 80),
         parent: parent,
       );
-      expect(spaced.bytes, orderedEquals(ordinary.bytes));
+      expect(ordinary, hasLength(1));
+      expect(spaced, orderedEquals(ordinary));
     }
   });
 
@@ -514,45 +500,37 @@ void main() {
         null,
         const TreemapParentLabelConfig(height: 100),
       ]) {
-        final ordinary = await _paint(
-          tester,
+        final ordinary = _paint(
           config: wrapped,
           parent: parent,
           size: const Size(60, 100),
         );
-        final spaced = await _paint(
-          tester,
+        final spaced = _paint(
           config: wrapped.copyWith(spacing: 6),
           parent: parent,
           size: const Size(60, 100),
         );
-        expect(ordinary.title!.height, greaterThan(20));
-        expect(spaced.title, ordinary.title);
-        expect(spaced.value!.top - ordinary.value!.top, 6);
+        expect(ordinary, hasLength(2));
+        expect(spaced, hasLength(2));
+        expect(ordinary.first.height, greaterThan(20));
+        expect(spaced.first, ordinary.first);
+        expect(spaced.last.top - ordinary.last.top, 6);
       }
       for (final parent in [null, const TreemapParentLabelConfig(height: 30)]) {
-        final fits = await _paint(
-          tester,
-          parent: parent,
-          size: const Size(100, 30),
-        );
-        expect(fits.title, isNotNull);
-        expect(fits.value, isNotNull);
-        final omitted = await _paint(
-          tester,
+        final fits = _paint(parent: parent, size: const Size(100, 30));
+        expect(fits, hasLength(2));
+        final omitted = _paint(
           parent: parent,
           config: _config.copyWith(spacing: .5),
           size: const Size(100, 30),
         );
-        expect(omitted.bytes.every((byte) => byte == 0), isTrue);
-        final exact = await _paint(
-          tester,
+        expect(omitted, isEmpty);
+        final exact = _paint(
           parent: parent,
           config: _config.copyWith(spacing: 6),
           size: const Size(100, 36),
         );
-        expect(exact.title, isNotNull);
-        expect(exact.value, isNotNull);
+        expect(exact, hasLength(2));
       }
     },
   );
@@ -566,13 +544,13 @@ void main() {
       ],
     );
     for (final parent in [null, const TreemapParentLabelConfig()]) {
-      final ordinary = await _paint(tester, config: custom, parent: parent);
-      final spaced = await _paint(
-        tester,
+      final ordinary = _paint(config: custom, parent: parent);
+      final spaced = _paint(
         config: custom.copyWith(spacing: 80),
         parent: parent,
       );
-      expect(spaced.bytes, orderedEquals(ordinary.bytes));
+      expect(ordinary, hasLength(3));
+      expect(spaced, orderedEquals(ordinary));
     }
   });
 

@@ -5,6 +5,8 @@ import 'dart:math' as math;
 import 'geometry.dart';
 import 'model.dart';
 
+part 'layout/layout_request.dart';
+
 const _unspecifiedVisibleDepth = Object();
 
 /// Built-in algorithms for partitioning sibling weights into rectangles.
@@ -460,7 +462,29 @@ final class TreemapLayoutEngine<K> {
     TreemapLayoutConfig<K>? config,
     TreemapFocus<K>? focus,
     TreemapGeometrySnapshot<K>? previous,
-  }) {
+  }) => TreemapLayoutRequest<K>(
+    tree: tree,
+    viewport: viewport,
+    config: config,
+    focus: focus,
+    previous: previous,
+  ).execute(this);
+
+  TreemapGeometrySnapshot<K> _layout(TreemapLayoutRequest<K> request) {
+    final TreemapLayoutRequest<K>(
+      :tree,
+      :viewport,
+      :config,
+      :focus,
+      :previous,
+      :parentHeaderHeight,
+    ) = request;
+    if (parentHeaderHeight != null &&
+        (!parentHeaderHeight.isFinite || parentHeaderHeight < 0)) {
+      throw const TreemapLayoutException(
+        'Resolved parent header height must be finite and non-negative.',
+      );
+    }
     final effectiveConfig = config ?? TreemapLayoutConfig<K>();
     effectiveConfig.validate();
     if (!viewport.isFinite || viewport.width < 0 || viewport.height < 0) {
@@ -518,13 +542,40 @@ final class TreemapLayoutEngine<K> {
         parentGeometryKey: work.parentGeometryKey,
       );
 
+      final visibleDepth = work.childDepth - resolvedFocus.childDepth + 1;
+      final canExpand =
+          effectiveConfig.maxVisibleDepth == null ||
+          visibleDepth < effectiveConfig.maxVisibleDepth!;
+      final childBounds = <TreemapKey<K>, TreemapBounds>{};
       for (final item in partition.items) {
         final bounds = partition.bounds[item.key] ?? TreemapBounds.zero();
         final aggregate = partition.aggregates[item.key];
+        TreemapBounds? headerBounds;
+        if (canExpand && item.node?.children.isNotEmpty == true) {
+          var content = bounds.inset(effectiveConfig.levelPadding);
+          final requestedHeight = parentHeaderHeight;
+          if (requestedHeight != null) {
+            final height = math.min(requestedHeight, content.height);
+            headerBounds = TreemapBounds.fromLTWH(
+              content.left,
+              content.top,
+              content.width,
+              height,
+            );
+            content = TreemapBounds.fromLTWH(
+              content.left,
+              content.top + height,
+              content.width,
+              content.height - height,
+            );
+          }
+          childBounds[item.key] = content;
+        }
         final geometry = TreemapGeometryNode<K>(
           key: item.key,
           node: item.node,
           bounds: bounds,
+          headerBounds: headerBounds,
           weight: item.weight,
           depth: work.childDepth,
           kind: aggregate == null
@@ -538,20 +589,16 @@ final class TreemapLayoutEngine<K> {
         nodes.add(geometry);
       }
 
-      final visibleDepth = work.childDepth - resolvedFocus.childDepth + 1;
-      if (effectiveConfig.maxVisibleDepth != null &&
-          visibleDepth >= effectiveConfig.maxVisibleDepth!) {
-        continue;
-      }
+      if (!canExpand) continue;
       for (final item in partition.items.reversed) {
         final node = item.node;
-        final bounds = partition.bounds[item.key];
+        final bounds = childBounds[item.key];
         if (node == null || node.children.isEmpty || bounds == null) continue;
         stack.add(
           _LayoutWork(
             parent: node,
             children: node.children,
-            bounds: bounds.inset(effectiveConfig.levelPadding),
+            bounds: bounds,
             parentGeometryKey: item.key,
             childDepth: work.childDepth + 1,
             inheritedRule: rule,
@@ -583,28 +630,13 @@ final class TreemapLayoutEngine<K> {
     TreemapFocus<K>? focus,
     TreemapGeometrySnapshot<K>? previous,
     bool fallbackToSynchronous = true,
-  }) async {
-    try {
-      return await Isolate.run(
-        () => TreemapLayoutEngine<K>().layout(
-          tree: tree,
-          viewport: viewport,
-          config: config,
-          focus: focus,
-          previous: previous,
-        ),
-      );
-    } on Object {
-      if (!fallbackToSynchronous) rethrow;
-      return layout(
-        tree: tree,
-        viewport: viewport,
-        config: config,
-        focus: focus,
-        previous: previous,
-      );
-    }
-  }
+  }) => TreemapLayoutRequest<K>(
+    tree: tree,
+    viewport: viewport,
+    config: config,
+    focus: focus,
+    previous: previous,
+  ).executeAsync(this, fallbackToSynchronous: fallbackToSynchronous);
 
   _ResolvedFocus<K> _resolveFocus(
     TreemapNormalizedTree<K> tree,

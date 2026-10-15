@@ -128,7 +128,7 @@ void main() {
             return TreemapChart<String>(
               tree: TreemapNormalizer.normalize(_root(first: value)),
               tiles: testTreemapTiles(style: style),
-              labels: testTreemapLabels(style: style),
+              labels: testTreemapLabels(),
               onPresentationChanged: (presentation) =>
                   latest = presentation.targetSnapshot!,
             );

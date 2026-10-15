@@ -38,10 +38,32 @@ Presets stay grouped in `lib/scenarios/*.dart`. Each `ExamplePreset` supplies it
 
 ## Validation
 
-Run `flutter analyze`, `flutter test`, and `flutter build web` here, plus package analysis/tests at the repository root. Tests cover all 52 presets, configuration/URL round trips, draft validation, browser route restoration, responsive/help UI, interaction/state ownership, and chart goldens. The existing example golden images moved into `test/goldens` without changing their baselines.
+Run `flutter analyze`, `flutter test`, and `flutter build web` here, plus package analysis/tests at the repository root. Tests cover all 59 presets, configuration/URL round trips, draft validation, browser route restoration, responsive/help UI, interaction/state ownership, and chart goldens. The existing example golden images moved into `test/goldens` without changing their baselines.
 
 Prepared source data is retained by the data signature. Styling and layout edits
 reuse it; dataset or single-child-policy changes prepare a new immutable tree. The `data-prepared-tree`
 preset shares one tree between two independently interactive charts. Custom
 presentation controls use keyed chart actions, and external views consume the
 same immutable presentation published after the frame.
+
+Typography lives under Labels: `labels.titleSize/valueSize` set the base, and
+`labels.hover.titleSize/valueSize`, `labels.selected.titleSize/valueSize`, and
+`labels.focused.titleSize/valueSize` set rendering overrides. `labels.nodeStyle`
+selects a final per-node override. Previous `tiles.<state>.titleSize/valueSize`
+links show unknown-property notices; use the new keys. Automatic parent headers
+always use base typography, including when switching canvas/widget renderers.
+
+Every custom `TreemapLabelLayer` implements `resolveParentHeaderHeight(context)`
+directly. `ConfiguredWidgetLabels` delegates to its configured widget label layer
+before geometry is computed; custom layers without reserved headers return
+`null`. `layout-parent-headers` demonstrates this sizing contract across canvas
+and widget renderers, including text scaling and independent parent visibility.
+
+`appearance-shared-tile-labels` demonstrates shared background contrast across
+canvas, widget and composite tile renderers. `appearance-label-fallback` uses
+invisible tiles declaring a white background source while painting nothing
+(the existing scenario URL is retained). Canvas labels receive only label
+configuration; all background sources belong to tile layers, including invisible
+ones. Every custom `TreemapTileLayer` implements its nullable `appearance` getter
+directly; wrappers can forward their delegate's source. Composite layers name
+their source explicitly. Return `null` only when no shared background is needed.

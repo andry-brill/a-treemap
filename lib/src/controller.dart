@@ -48,6 +48,9 @@ final class TreemapNodeDetails<K> {
   TreemapNode<K>? get node => geometry.node;
   List<TreemapNode<K>> get aggregateMembers => geometry.aggregateMembers;
   TreemapBounds get bounds => geometry.bounds;
+
+  /// Reserved label region for an expanded parent, including label padding.
+  TreemapBounds? get headerBounds => geometry.headerBounds;
   double get weight => geometry.weight;
   int get depth => geometry.depth;
   String? get label => geometry.label;

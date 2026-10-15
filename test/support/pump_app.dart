@@ -71,18 +71,8 @@ TreemapTiles<K> testTreemapTiles<K>({
 );
 
 TreemapCanvasLabels<K> testTreemapLabels<K>({
-  TreemapColorScale? colorScale,
-  TreemapStyle? style,
-  TreemapNodeStyleResolver<K>? nodeStyleResolver,
   TreemapLabelConfig<K> config = const TreemapLabelConfig(),
-}) => TreemapCanvasLabels(
-  appearance: testTreemapAppearance(
-    colorScale: colorScale,
-    style: style,
-    nodeStyleResolver: nodeStyleResolver,
-  ),
-  config: config,
-);
+}) => TreemapCanvasLabels(config: config);
 
 extension TreemapWidgetTester on WidgetTester {
   Future<void> pumpTreemapApp(

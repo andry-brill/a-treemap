@@ -43,7 +43,6 @@ final class PlaygroundComposition {
         hoverAppearance: _stateAppearance('hover'),
         selectedAppearance: _stateAppearance('selected'),
         focusedAppearance: _stateAppearance('focused'),
-        labelPadding: padding('labels.padding'),
       ),
       nodeStyleResolver: config.text('tiles.nodeStyle') == 'none'
           ? null
@@ -162,12 +161,6 @@ final class PlaygroundComposition {
             ),
       borderRadius: BorderRadius.circular(config.number('$prefix.radius')),
       opacity: config.number('$prefix.opacity'),
-      titleStyle: config.optionalNumber('$prefix.titleSize') == null
-          ? null
-          : TextStyle(fontSize: config.number('$prefix.titleSize')),
-      valueStyle: config.optionalNumber('$prefix.valueSize') == null
-          ? null
-          : TextStyle(fontSize: config.number('$prefix.valueSize')),
     );
   }
 
@@ -330,6 +323,15 @@ final class PlaygroundComposition {
     height: config.number('labels.${line}Height'),
   );
 
+  TreemapLabelStyle _labelStateStyle(String state) => TreemapLabelStyle(
+    titleStyle: config.optionalNumber('labels.$state.titleSize') == null
+        ? null
+        : TextStyle(fontSize: config.number('labels.$state.titleSize')),
+    valueStyle: config.optionalNumber('labels.$state.valueSize') == null
+        ? null
+        : TextStyle(fontSize: config.number('labels.$state.valueSize')),
+  );
+
   TreemapLabelConfig<String> _labelConfig() => TreemapLabelConfig(
     showTitle: config.flag('labels.showTitle'),
     showValue: config.flag('labels.showValue'),
@@ -350,30 +352,45 @@ final class PlaygroundComposition {
     weightFractionDigits: config.integer('labels.weightFractionDigits'),
     titleStyle: textStyle('title'),
     valueStyle: textStyle('value'),
+    hoverStyle: _labelStateStyle('hover'),
+    selectedStyle: _labelStateStyle('selected'),
+    focusedStyle: _labelStateStyle('focused'),
+    nodeStyleResolver: config.text('labels.nodeStyle') == 'none'
+        ? null
+        : (context, details, states) => details.key.sourceKey == 'food'
+              ? const TreemapLabelStyle(
+                  titleStyle: TextStyle(fontSize: 16, color: Colors.deepPurple),
+                )
+              : null,
+    padding: padding('labels.padding'),
+    spacing: config.number('labels.spacing'),
     valueColorOpacity: config.number('labels.valueColorOpacity'),
     colorResolver: _labelColor,
     linesBuilder: config.text('labels.linesBuilder') == 'default'
         ? null
-        : (details, appearance, locale) => [
+        : (details, appearance, locale, styles) => [
             if (config.flag('labels.showTitle'))
               TreemapCanvasLabelLine(
                 text: title(details),
-                style: textStyle(
-                  'title',
-                ).copyWith(color: _labelColor(appearance)),
+                style: _withLabelColor(
+                  styles.titleStyle!,
+                  _labelColor(appearance),
+                ),
               ),
             if (config.flag('labels.showValue'))
               TreemapCanvasLabelLine(
                 text: value(details),
-                style: textStyle(
-                  'value',
-                ).copyWith(color: _labelColor(appearance)),
+                style: _withLabelColor(
+                  styles.valueStyle!,
+                  _labelColor(appearance),
+                ),
               ),
             TreemapCanvasLabelLine(
               text: 'Depth ${details.depth}',
-              style: textStyle(
-                'value',
-              ).copyWith(color: _labelColor(appearance)),
+              style: _withLabelColor(
+                styles.valueStyle!,
+                _labelColor(appearance),
+              ),
             ),
           ],
     maxLines: config.integer('labels.maxLines'),
@@ -388,22 +405,32 @@ final class PlaygroundComposition {
   TreemapTileLayer<String> get tiles {
     final canvas = TreemapTiles<String>(appearance: appearance);
     return switch (config.text('tiles.renderer')) {
-      'noop' => const TreemapNoopTileLayer(),
+      'noop' => TreemapNoopTileLayer(appearance: appearance),
       'widgets' => ConfiguredWidgetTiles(this),
       'composite' => TreemapCompositeTileLayer([
         canvas,
         ConfiguredWidgetTiles(this, borderOnly: true),
-      ]),
+      ], appearance: appearance),
       _ => canvas,
     };
   }
 
-  TreemapLabelLayer<String>? get labels =>
-      switch (config.text('labels.renderer')) {
-        'none' => null,
-        'widgets' => ConfiguredWidgetLabels(this),
-        _ => TreemapCanvasLabels(appearance: appearance, config: labelConfig),
-      };
+  TreemapLabelLayer<String>? get labels => switch (config.text(
+    'labels.renderer',
+  )) {
+    'none' => null,
+    'widgets' => ConfiguredWidgetLabels(this),
+    _ => TreemapCanvasLabels(config: labelConfig, parentLabels: parentLabels),
+  };
+
+  TreemapParentLabelConfig? get parentLabels =>
+      config.flag('labels.parents.enabled')
+      ? TreemapParentLabelConfig(
+          showTitle: config.flag('labels.parents.showTitle'),
+          showValue: config.flag('labels.parents.showValue'),
+          height: config.optionalNumber('labels.parents.height'),
+        )
+      : null;
 
   Widget wrapper(BuildContext context, Widget child, String mode) =>
       mode == 'plain'
@@ -855,11 +882,10 @@ final class ConfiguredWidgetTiles implements TreemapTileLayer<String> {
   final PlaygroundComposition composition;
   final bool borderOnly;
   @override
+  TreemapAppearanceResolver<String> get appearance => composition.appearance;
+  @override
   Widget build(BuildContext context, TreemapVisualContext<String> visual) {
-    final appearances = visual.resolveAppearances(
-      context,
-      composition.appearance,
-    );
+    final appearances = visual.resolveAppearances(context, appearance);
     return TreemapBuilderTileLayer<String>(
       maximumNodes: composition.config
           .optionalNumber('tiles.maximumNodes')
@@ -890,93 +916,129 @@ final class ConfiguredWidgetTiles implements TreemapTileLayer<String> {
 final class ConfiguredWidgetLabels implements TreemapLabelLayer<String> {
   const ConfiguredWidgetLabels(this.composition);
   final PlaygroundComposition composition;
-  @override
-  Widget build(BuildContext context, TreemapVisualContext<String> visual) {
+
+  TreemapWidgetLabels<String> _layer(
+    TreemapStatefulNodeWidgetBuilder<String> builder,
+  ) {
     final config = composition.config;
-    final appearances = visual.resolveAppearances(
-      context,
-      composition.appearance,
-    );
     return TreemapWidgetLabels<String>(
+      config: composition.labelConfig,
       maximumNodes: config.optionalNumber('labels.maximumNodes')?.toInt(),
       ignorePointer: config.flag('labels.ignorePointer'),
       clipBehavior: named(Clip.values, config.text('labels.clip')),
-      builder: (context, details, states) {
-        if (details.bounds.width < config.number('labels.minimumWidth') ||
-            details.bounds.height < config.number('labels.minimumHeight')) {
-          return const SizedBox.shrink();
-        }
-        final appearance = appearances[details.key]!;
-        final color = composition._labelColor(appearance);
-        final titleStyle =
-            (appearance.titleStyle ?? composition.textStyle('title')).copyWith(
-              color: config.optionalColor('labels.titleColor') ?? color,
-            );
-        final valueStyle =
-            (appearance.valueStyle ?? composition.textStyle('value')).copyWith(
-              color:
-                  config.optionalColor('labels.valueColor') ??
-                  color.withValues(
-                    alpha: config.number('labels.valueColorOpacity'),
+      parentLabels: composition.parentLabels,
+      builder: builder,
+      parentBuilder: config.text('labels.parents.widgetBuilder') == 'badge'
+          ? (context, details, states) => DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: .15),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(left: 6),
+                    child: Icon(Icons.folder_outlined, size: 18),
                   ),
-            );
-        final icon = config.text('labels.widgetBuilder') == 'icons';
-        final localized = composition.labelConfig.localizedValueFormatter;
-        final labelValue = localized == null
-            ? composition.value(details)
-            : localized(details, Localizations.localeOf(context));
-        final title = details.isAggregate && icon
-            ? 'Other (${details.aggregateMembers.length})'
-            : composition.title(details);
-        return Padding(
-          padding: composition.padding('labels.padding'),
-          child: Align(
-            alignment: alignment(config.text('labels.alignment')),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (config.flag('labels.showTitle'))
-                  Flexible(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (icon) ...[
-                          Icon(Icons.widgets_outlined, size: 14, color: color),
-                          const SizedBox(width: 4),
-                        ],
-                        Flexible(
-                          child: Text(
-                            title,
-                            textDirection:
-                                composition.labelConfig.textDirection,
-                            maxLines: config.integer('labels.maxLines'),
-                            overflow: named(
-                              TextOverflow.values,
-                              config.text('labels.overflow'),
-                            ),
-                            style: titleStyle,
-                          ),
-                        ),
+                  Expanded(child: builder(context, details, states)),
+                ],
+              ),
+            )
+          : null,
+    );
+  }
+
+  @override
+  double? resolveParentHeaderHeight(BuildContext context) => _layer(
+    (context, details, states) => const SizedBox.shrink(),
+  ).resolveParentHeaderHeight(context);
+  @override
+  Widget build(BuildContext context, TreemapVisualContext<String> visual) {
+    final config = composition.config;
+    final labelConfig = composition.labelConfig;
+    final parentLabels = composition.parentLabels;
+    final appearances = visual.resolveTileAppearances(context);
+    return _layer((context, details, states) {
+      final header = details.headerBounds != null;
+      final bounds = details.headerBounds ?? details.bounds;
+      if (bounds.width < config.number('labels.minimumWidth') ||
+          bounds.height < config.number('labels.minimumHeight')) {
+        return const SizedBox.shrink();
+      }
+      final appearance = appearances[details.key]!;
+      final color = labelConfig.colorResolver(appearance);
+      final styles = labelConfig.resolveStyles(context, details, states);
+      final titleStyle = _withLabelColor(styles.titleStyle!, color);
+      final valueStyle = _withLabelColor(
+        styles.valueStyle!,
+        color.withValues(alpha: labelConfig.valueColorOpacity),
+      );
+      final icon = config.text('labels.widgetBuilder') == 'icons';
+      final localized = labelConfig.localizedValueFormatter;
+      final labelValue = localized == null
+          ? labelConfig.valueFormatter!(details)
+          : localized(details, Localizations.localeOf(context));
+      final title = details.isAggregate && icon
+          ? 'Other (${details.aggregateMembers.length})'
+          : labelConfig.titleFormatter!(details);
+      final showTitle =
+          (header ? parentLabels!.showTitle : labelConfig.showTitle) &&
+          title.isNotEmpty;
+      final showValue =
+          (header ? parentLabels!.showValue : labelConfig.showValue) &&
+          labelValue.isNotEmpty;
+      final spacing = showTitle && showValue ? labelConfig.spacing : 0.0;
+      final labelPadding = labelConfig.padding;
+      if (spacing > bounds.height - labelPadding.vertical) {
+        return const SizedBox.shrink();
+      }
+      return Padding(
+        padding: labelPadding,
+        child: Align(
+          alignment: labelConfig.alignment,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showTitle)
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (icon) ...[
+                        Icon(Icons.widgets_outlined, size: 14, color: color),
+                        const SizedBox(width: 4),
                       ],
-                    ),
+                      Flexible(
+                        child: Text(
+                          title,
+                          textDirection: labelConfig.textDirection,
+                          maxLines: header && parentLabels?.height == null
+                              ? 1
+                              : labelConfig.maxLines,
+                          overflow: labelConfig.overflow,
+                          style: titleStyle,
+                        ),
+                      ),
+                    ],
                   ),
-                if (config.flag('labels.showValue'))
-                  Flexible(
-                    child: Text(
-                      labelValue,
-                      textDirection: composition.labelConfig.textDirection,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: valueStyle,
-                    ),
+                ),
+              if (spacing > 0) SizedBox(height: spacing),
+              if (showValue)
+                Flexible(
+                  child: Text(
+                    labelValue,
+                    textDirection: labelConfig.textDirection,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: valueStyle,
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
-        );
-      },
-    ).build(context, visual);
+        ),
+      );
+    }).build(context, visual);
   }
 }
 
@@ -999,3 +1061,8 @@ final _layoutResolvers = <String, TreemapLayoutRuleResolver<String>>{
         : TreemapLayoutAlgorithm.slice,
   ),
 };
+
+TextStyle _withLabelColor(TextStyle style, Color color) =>
+    style.color != null || style.foreground != null
+    ? style
+    : style.copyWith(color: color);

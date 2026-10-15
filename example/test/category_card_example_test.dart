@@ -26,6 +26,16 @@ void main() {
         find.descendant(of: chartFinder, matching: find.text(text));
     await show();
     expect(chartText('Groceries'), findsOneWidget);
+    for (final label in [
+      'Expenses',
+      '19',
+      'Food',
+      '6',
+      'Other expenses',
+      '8',
+    ]) {
+      expect(chartText(label), findsOneWidget);
+    }
     config = config.withValues({'layout.maxVisibleDepth': 1});
     await show();
     expect(chartText('Expenses'), findsOneWidget);

@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../appearance/label.dart';
+import '../appearance/parent_label.dart';
 import '../appearance/style.dart';
 import '../controller.dart';
 import '../geometry.dart';
@@ -13,19 +14,21 @@ final class TreemapCanvasLabelPainter<K> extends CustomPainter {
     required this.nodes,
     required this.details,
     required this.appearances,
+    required this.styles,
     required this.config,
-    required this.padding,
     required this.textDirection,
     required this.textScaler,
     required this.locale,
     required this.textCache,
+    this.parentLabels,
   });
 
   final List<TreemapGeometryNode<K>> nodes;
   final Map<TreemapKey<K>, TreemapNodeDetails<K>> details;
   final Map<TreemapKey<K>, TreemapAppearance> appearances;
+  final Map<TreemapKey<K>, TreemapLabelStyle> styles;
   final TreemapLabelConfig<K> config;
-  final EdgeInsets padding;
+  final TreemapParentLabelConfig? parentLabels;
   final TextDirection textDirection;
   final TextScaler textScaler;
   final Locale? locale;
@@ -35,11 +38,12 @@ final class TreemapCanvasLabelPainter<K> extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final ordered = nodes.toList()..sort((a, b) => a.depth.compareTo(b.depth));
     for (final node in ordered) {
+      final bounds = node.headerBounds ?? node.bounds;
       final rect = Rect.fromLTWH(
-        node.bounds.left,
-        node.bounds.top,
-        node.bounds.width,
-        node.bounds.height,
+        bounds.left,
+        bounds.top,
+        bounds.width,
+        bounds.height,
       );
       if (rect.isEmpty) continue;
       canvas.save();
@@ -55,8 +59,25 @@ final class TreemapCanvasLabelPainter<K> extends CustomPainter {
     TreemapNodeDetails<K> nodeDetails,
     TreemapAppearance tileAppearance,
   ) {
-    final lines = config.resolveLines(nodeDetails, tileAppearance, locale);
+    final parent = nodeDetails.headerBounds == null ? null : parentLabels;
+    final effectiveConfig = parent == null
+        ? config
+        : config.copyWith(
+            showTitle: parent.showTitle,
+            showValue: parent.showValue,
+            maxLines: parent.height == null ? 1 : config.maxLines,
+          );
+    final lines = effectiveConfig.resolveLines(
+      nodeDetails,
+      tileAppearance,
+      locale,
+      styles: styles[nodeDetails.key]!,
+    );
     if (lines.isEmpty) return;
+    final spacing = effectiveConfig.linesBuilder == null && lines.length == 2
+        ? effectiveConfig.spacing
+        : 0.0;
+    final padding = effectiveConfig.padding;
     final available = Rect.fromLTRB(
       rect.left + padding.left,
       rect.top + padding.top,
@@ -65,13 +86,13 @@ final class TreemapCanvasLabelPainter<K> extends CustomPainter {
     );
     if (available.isEmpty) return;
     final painters = <TextPainter>[];
-    var totalHeight = 0.0;
+    var totalHeight = spacing;
     for (final line in lines) {
       final painter = textCache.layout(
         text: line.text,
         style: line.style,
         maxWidth: available.width,
-        maxLines: config.maxLines,
+        maxLines: effectiveConfig.maxLines,
         direction: config.textDirection ?? textDirection,
         scaler: textScaler,
         locale: locale,
@@ -82,7 +103,9 @@ final class TreemapCanvasLabelPainter<K> extends CustomPainter {
       painters.add(painter);
       totalHeight += painter.height;
     }
-    if (totalHeight > available.height) return;
+    // Subtracting fractional tile coordinates can lose a few floating-point
+    // bits even when an automatic header reserved exactly this text height.
+    if (totalHeight - available.height > 1e-7) return;
     final blockSize = Size(
       painters.fold<double>(
         0,
@@ -94,7 +117,7 @@ final class TreemapCanvasLabelPainter<K> extends CustomPainter {
     var y = origin.dy;
     for (final painter in painters) {
       painter.paint(canvas, Offset(origin.dx, y));
-      y += painter.height;
+      y += painter.height + spacing;
     }
   }
 
@@ -103,8 +126,9 @@ final class TreemapCanvasLabelPainter<K> extends CustomPainter {
       nodes != oldDelegate.nodes ||
       details != oldDelegate.details ||
       appearances != oldDelegate.appearances ||
+      styles != oldDelegate.styles ||
       config != oldDelegate.config ||
-      padding != oldDelegate.padding ||
+      parentLabels != oldDelegate.parentLabels ||
       textDirection != oldDelegate.textDirection ||
       textScaler != oldDelegate.textScaler ||
       locale != oldDelegate.locale;

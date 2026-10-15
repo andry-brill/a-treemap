@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../controller.dart';
 import '../presentation/state.dart';
 
-/// Describes the paint and text styling for one tile state.
+/// Describes the rectangle styling for one tile state.
 final class TreemapAppearance {
   const TreemapAppearance({
     this.color,
@@ -11,8 +11,6 @@ final class TreemapAppearance {
     this.border = BorderSide.none,
     this.borderRadius = BorderRadius.zero,
     this.opacity = 1,
-    this.titleStyle,
-    this.valueStyle,
   }) : assert(opacity >= 0 && opacity <= 1);
 
   final Color? color;
@@ -20,8 +18,6 @@ final class TreemapAppearance {
   final BorderSide border;
   final BorderRadius borderRadius;
   final double opacity;
-  final TextStyle? titleStyle;
-  final TextStyle? valueStyle;
 
   TreemapAppearance copyWith({
     Color? color,
@@ -29,16 +25,12 @@ final class TreemapAppearance {
     BorderSide? border,
     BorderRadius? borderRadius,
     double? opacity,
-    TextStyle? titleStyle,
-    TextStyle? valueStyle,
   }) => TreemapAppearance(
     color: color ?? this.color,
     gradient: gradient ?? this.gradient,
     border: border ?? this.border,
     borderRadius: borderRadius ?? this.borderRadius,
     opacity: opacity ?? this.opacity,
-    titleStyle: titleStyle ?? this.titleStyle,
-    valueStyle: valueStyle ?? this.valueStyle,
   );
 
   TreemapAppearance merge(TreemapAppearance? other) {
@@ -51,8 +43,6 @@ final class TreemapAppearance {
           ? borderRadius
           : other.borderRadius,
       opacity: opacity * other.opacity,
-      titleStyle: other.titleStyle ?? titleStyle,
-      valueStyle: other.valueStyle ?? valueStyle,
     );
   }
 
@@ -63,23 +53,14 @@ final class TreemapAppearance {
       gradient == other.gradient &&
       border == other.border &&
       borderRadius == other.borderRadius &&
-      opacity == other.opacity &&
-      titleStyle == other.titleStyle &&
-      valueStyle == other.valueStyle;
+      opacity == other.opacity;
 
   @override
-  int get hashCode => Object.hash(
-    color,
-    gradient,
-    border,
-    borderRadius,
-    opacity,
-    titleStyle,
-    valueStyle,
-  );
+  int get hashCode =>
+      Object.hash(color, gradient, border, borderRadius, opacity);
 }
 
-/// Groups base, interaction-state, background, and label-padding appearance.
+/// Groups base, interaction-state and background appearance.
 final class TreemapStyle {
   const TreemapStyle({
     this.backgroundColor = const Color(0x00000000),
@@ -91,7 +72,6 @@ final class TreemapStyle {
       border: BorderSide(color: Color(0xFFFFC107), width: 3),
     ),
     this.focusedAppearance = const TreemapAppearance(),
-    this.labelPadding = const EdgeInsets.all(6),
   });
 
   final Color backgroundColor;
@@ -99,7 +79,6 @@ final class TreemapStyle {
   final TreemapAppearance hoverAppearance;
   final TreemapAppearance selectedAppearance;
   final TreemapAppearance focusedAppearance;
-  final EdgeInsets labelPadding;
 
   TreemapStyle copyWith({
     Color? backgroundColor,
@@ -107,14 +86,12 @@ final class TreemapStyle {
     TreemapAppearance? hoverAppearance,
     TreemapAppearance? selectedAppearance,
     TreemapAppearance? focusedAppearance,
-    EdgeInsets? labelPadding,
   }) => TreemapStyle(
     backgroundColor: backgroundColor ?? this.backgroundColor,
     tileAppearance: tileAppearance ?? this.tileAppearance,
     hoverAppearance: hoverAppearance ?? this.hoverAppearance,
     selectedAppearance: selectedAppearance ?? this.selectedAppearance,
     focusedAppearance: focusedAppearance ?? this.focusedAppearance,
-    labelPadding: labelPadding ?? this.labelPadding,
   );
 
   @override
@@ -124,8 +101,7 @@ final class TreemapStyle {
       tileAppearance == other.tileAppearance &&
       hoverAppearance == other.hoverAppearance &&
       selectedAppearance == other.selectedAppearance &&
-      focusedAppearance == other.focusedAppearance &&
-      labelPadding == other.labelPadding;
+      focusedAppearance == other.focusedAppearance;
 
   @override
   int get hashCode => Object.hash(
@@ -134,7 +110,6 @@ final class TreemapStyle {
     hoverAppearance,
     selectedAppearance,
     focusedAppearance,
-    labelPadding,
   );
 }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../appearance/resolver.dart';
 import '../controller.dart';
 import 'context.dart';
 import 'state.dart';
@@ -15,11 +16,28 @@ typedef TreemapStatefulNodeWidgetBuilder<K> =
 
 /// Required visual layer that owns all tile rendering.
 abstract interface class TreemapTileLayer<K> {
+  /// Background source shared with labels and other rendering layers.
+  ///
+  /// The chart reads this before building layers. Wrappers may delegate to their
+  /// tile layer; the source must not depend on [build] having run. Return null
+  /// when no shared source is declared. Canvas labels require a non-null source;
+  /// arbitrary widgets and composite paints cannot be inspected to infer one.
+  TreemapAppearanceResolver<K>? get appearance;
+
   Widget build(BuildContext context, TreemapVisualContext<K> visual);
 }
 
-/// Optional visual layer that renders labels inside the resolved node bounds.
+/// Optional layer that declares header sizing and renders labels in node bounds.
 abstract interface class TreemapLabelLayer<K> {
+  /// Resolves the complete parent-header allocation before geometry is computed.
+  ///
+  /// Use configuration and inherited text metrics, never presentation output,
+  /// built widgets or rendering callbacks. Wrappers may delegate to their label
+  /// layer. Return null when no parent headers should be reserved. A height
+  /// includes label padding and spacing and must be finite and non-negative;
+  /// the chart passes only this number to geometry internally.
+  double? resolveParentHeaderHeight(BuildContext context);
+
   Widget build(BuildContext context, TreemapVisualContext<K> visual);
 }
 

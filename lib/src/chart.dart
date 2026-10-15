@@ -144,6 +144,7 @@ final class _TreemapChartState<K> extends State<TreemapChart<K>> {
             actions: _coordinator,
             textDirection: Directionality.of(context),
             textScaler: MediaQuery.textScalerOf(context),
+            tileAppearance: widget.tiles.appearance,
           );
           return widget.surrounding?.wrap(context, viewport, visual) ??
               viewport;
@@ -200,7 +201,12 @@ final class _TreemapViewportState<K> extends State<_TreemapViewport<K>> {
         ]);
       }
       final owner = widget.coordinator;
-      owner.resolveTarget(constraints.biggest);
+      final labels = widget.chart.labels;
+      final parentHeaderHeight = labels?.resolveParentHeaderHeight(context);
+      owner.resolveTarget(
+        constraints.biggest,
+        parentHeaderHeight: parentHeaderHeight,
+      );
       final media = MediaQuery.of(context);
       final reduceMotion =
           media.disableAnimations || media.accessibleNavigation;
@@ -226,6 +232,7 @@ final class _TreemapViewportState<K> extends State<_TreemapViewport<K>> {
       actions: owner,
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
+      tileAppearance: chart.tiles.appearance,
     );
     final tooltip = chart.tooltip;
     final details = state.tooltipDetails;

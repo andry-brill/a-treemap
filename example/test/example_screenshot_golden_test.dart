@@ -197,10 +197,7 @@ void main() {
     }
 
     final labels = chart.labels! as TreemapCanvasLabels<String>;
-    expect(
-      labels.appearance.style.labelPadding,
-      const EdgeInsets.only(left: 16, top: 12),
-    );
+    expect(labels.config.padding, const EdgeInsets.only(left: 16, top: 12));
     final chartContext = tester.element(chartFinder);
     for (final responsiveSnapshot in responsiveSnapshots) {
       for (final aggregate in responsiveSnapshot.nodes.where(
@@ -218,15 +215,24 @@ void main() {
           geometry: aggregate,
           path: const [],
         );
-        final appearance = labels.appearance.resolve(
+        final appearance = chart.tiles.appearance!.resolve(
           chartContext,
           details,
           const {},
         );
         final line = labels.config
-            .resolveLines(details, appearance, const Locale('en'))
+            .resolveLines(
+              details,
+              appearance,
+              const Locale('en'),
+              styles: labels.config.resolveStyles(
+                chartContext,
+                details,
+                const {},
+              ),
+            )
             .single;
-        final padding = labels.appearance.style.labelPadding;
+        final padding = labels.config.padding;
         final availableWidth = aggregate.bounds.width - padding.horizontal;
         final availableHeight = aggregate.bounds.height - padding.vertical;
         expect(availableWidth, greaterThan(0));
@@ -254,7 +260,9 @@ void main() {
         path: const [],
       );
       expect(
-        labels.appearance.resolve(chartContext, details, const {}).opacity,
+        chart.tiles.appearance!
+            .resolve(chartContext, details, const {})
+            .opacity,
         0,
       );
     }
@@ -266,7 +274,7 @@ void main() {
         geometry: aggregate,
         path: const [],
       );
-      final appearance = labels.appearance.resolve(
+      final appearance = chart.tiles.appearance!.resolve(
         chartContext,
         details,
         const {},
@@ -274,7 +282,16 @@ void main() {
       expect(appearance.opacity, closeTo(.2, .001));
       expect(
         labels.config
-            .resolveLines(details, appearance, const Locale('en'))
+            .resolveLines(
+              details,
+              appearance,
+              const Locale('en'),
+              styles: labels.config.resolveStyles(
+                chartContext,
+                details,
+                const {},
+              ),
+            )
             .single
             .text,
         'Other...',
@@ -285,7 +302,7 @@ void main() {
         geometry: node,
         path: const [],
       );
-      final resolved = labels.appearance.resolve(
+      final resolved = chart.tiles.appearance!.resolve(
         chartContext,
         details,
         const {},

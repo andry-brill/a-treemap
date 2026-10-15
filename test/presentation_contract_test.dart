@@ -6,6 +6,9 @@ final class _RecordingTiles implements TreemapTileLayer<String> {
   TreemapVisualContext<String>? latest;
 
   @override
+  TreemapAppearanceResolver<String>? get appearance => null;
+
+  @override
   Widget build(BuildContext context, TreemapVisualContext<String> visual) {
     latest = visual;
     return Stack(

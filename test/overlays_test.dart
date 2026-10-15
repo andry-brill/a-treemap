@@ -136,7 +136,7 @@ void main() {
     expect(changed.colorResolver(const TreemapAppearance()), Colors.pink);
 
     final customLines = changed.copyWith(
-      linesBuilder: (details, appearance, locale) => const [
+      linesBuilder: (details, appearance, locale, styles) => const [
         TreemapCanvasLabelLine(
           text: 'Custom line',
           style: TextStyle(fontSize: 8),
@@ -149,6 +149,10 @@ void main() {
             _tooltipDetails(target),
             const TreemapAppearance(color: Colors.blue),
             null,
+            styles: TreemapLabelStyle(
+              titleStyle: changed.titleStyle,
+              valueStyle: changed.valueStyle,
+            ),
           )
           .single
           .text,
@@ -623,7 +627,7 @@ void main() {
           child: TreemapChart<String>(
             tree: TreemapNormalizer.normalize(_manyNodes(5)),
             tiles: testTreemapTiles(colorScale: scale),
-            labels: testTreemapLabels(colorScale: scale),
+            labels: testTreemapLabels(),
             surrounding: TreemapBreadcrumbs(
               config: TreemapBreadcrumbsConfig(position: position),
             ),
@@ -640,7 +644,7 @@ void main() {
           child: TreemapChart<String>(
             tree: TreemapNormalizer.normalize(_manyNodes(5)),
             tiles: testTreemapTiles(colorScale: scale),
-            labels: testTreemapLabels(colorScale: scale),
+            labels: testTreemapLabels(),
             surrounding: TreemapLegend(
               scale: scale,
               config: TreemapLegendConfig.bar(position: position),

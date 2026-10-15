@@ -1,11 +1,14 @@
 import 'package:flutter/widgets.dart';
 
 import '../appearance/label.dart';
-import '../appearance/resolver.dart';
+import '../appearance/parent_label.dart';
+import '../model.dart';
 import '../painters/canvas_label_painter.dart';
+import '../painters/parent_label_metrics.dart';
 import '../painters/text_layout_cache.dart';
 import '../presentation/context.dart';
 import '../presentation/contracts.dart';
+import 'label_regions.dart';
 import 'widget_layers.dart';
 
 const _neutralTreemapLabelConfig = TreemapLabelConfig<Never>();
@@ -18,13 +21,16 @@ const _neutralTreemapLabelConfig = TreemapLabelConfig<Never>();
 /// Painting is clipped independently to every deepest visible block. Text is
 /// constrained to that block's available width and omitted when its complete
 /// line block cannot fit vertically.
+/// Opt-in [parentLabels] add reserved header regions above nested children.
+/// Background appearances come exclusively from the tile layer through
+/// [TreemapTileLayer.appearance], including when the tiles are invisible.
 final class TreemapCanvasLabels<K> implements TreemapLabelLayer<K> {
   TreemapCanvasLabels({
-    required this.appearance,
     TreemapLabelConfig<K> config = _neutralTreemapLabelConfig,
+    this.parentLabels,
   }) : _config = config;
 
-  final TreemapAppearanceResolver<K> appearance;
+  final TreemapParentLabelConfig? parentLabels;
   final TreemapLabelConfig<K> _config;
 
   /// Canvas-label formatting and layout configuration.
@@ -33,6 +39,18 @@ final class TreemapCanvasLabels<K> implements TreemapLabelLayer<K> {
       ? TreemapLabelConfig<K>()
       : _config;
   final TreemapTextLayoutCache _textCache = TreemapTextLayoutCache();
+
+  @override
+  double? resolveParentHeaderHeight(BuildContext context) =>
+      resolveParentLabelHeight(
+        context,
+        parentLabels,
+        titleStyle: config.titleStyle,
+        valueStyle: config.valueStyle,
+        padding: config.padding,
+        spacing: config.linesBuilder == null ? config.spacing : 0,
+        textDirection: config.textDirection,
+      );
 
   @override
   Widget build(BuildContext context, TreemapVisualContext<K> visual) {
@@ -46,15 +64,28 @@ final class TreemapCanvasLabels<K> implements TreemapLabelLayer<K> {
         'chart in WidgetsApp, MaterialApp, or Localizations.',
       );
     }
-    final appearances = visual.resolveAppearances(context, appearance);
+    final appearances = visual.resolveTileAppearances(context);
+    final nodes = labelNodes(
+      visual.presentation,
+      includeHeaders: parentLabels?.enabled ?? false,
+    ).toList(growable: false);
+    final styles = Map<TreemapKey<K>, TreemapLabelStyle>.unmodifiable({
+      for (final node in nodes)
+        node.key: config.resolveStyles(
+          context,
+          visual.presentation.details[node.key]!,
+          visual.presentation.statesFor(node.key),
+        ),
+    });
     return IgnorePointer(
       child: CustomPaint(
         painter: TreemapCanvasLabelPainter<K>(
-          nodes: visual.presentation.visibleLeafNodes.toList(growable: false),
+          nodes: nodes,
+          styles: styles,
           details: visual.presentation.details,
           appearances: appearances,
           config: config,
-          padding: appearance.style.labelPadding,
+          parentLabels: parentLabels,
           textDirection: visual.textDirection,
           textScaler: visual.textScaler,
           locale: locale,

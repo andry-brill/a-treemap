@@ -54,7 +54,7 @@ Widget _chart({
     controller: controller,
     layout: TreemapLayoutConfig(maxVisibleDepth: depth),
     tiles: TreemapTiles(appearance: appearance),
-    labels: TreemapCanvasLabels(appearance: appearance),
+    labels: TreemapCanvasLabels(),
     transition: animate ? TreemapTransitions.standard : null,
     surrounding: TreemapLegend(
       scale: scale,

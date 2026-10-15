@@ -1,5 +1,80 @@
 # Changelog
 
+## 3.0.0
+
+- **Breaking:** moved `resolveParentHeaderHeight(context)` directly onto
+  `TreemapLabelLayer` and removed `TreemapLabelLayoutProvider` without an alias.
+  Custom label layers implement the method, returning null to disable reserved
+  headers or delegating to their wrapped layer. Sizing still runs before geometry
+  using configuration and inherited metrics; rendering remains downstream.
+- **Breaking:** appearance ownership is entirely with tile layers. Canvas labels
+  consume their shared source and accept neither `appearance` nor
+  `fallbackAppearance`; `resolveTileAppearances(context)` has no fallback argument.
+  Shared backgrounds drive contrast and custom-line callbacks independently of
+  label typography and header sizing.
+- **Breaking:** `TreemapTileLayer` directly declares the nullable `appearance`
+  getter. Custom implementations supply or delegate their source, or return null;
+  no separate provider interface or runtime capability checks are needed.
+- Added optional invisible/widget/composite tile sources and
+  `TreemapVisualContext.tileAppearance` / `resolveTileAppearances`.
+  `TreemapNoopTileLayer(appearance: ...)` declares the background labels should
+  assume while painting nothing. Sources remain optional for geometry-only hosts
+  and arbitrary widget labels; canvas labels require a declared tile source.
+- Source declarations precede layer building; resolution reuses the frame/environment
+  cache without depending on drawing order or entering geometry. Standalone
+  compositions forward the tile source into their visual context. Missing sources
+  report an actionable error. Composite layers declare their source explicitly.
+- Added shared-background and invisible-tile label scenarios (59 presets). The
+  existing `appearance-label-fallback` URL now demonstrates invisible tile-owned
+  backgrounds; its stable ID is retained.
+- **Breaking:** moved all title/value typography from `TreemapAppearance` to
+  `TreemapLabelConfig`. Rectangle appearances now contain only paint styling.
+  Base styles, zero padding and zero spacing retain their defaults.
+- Added immutable `TreemapLabelStyle`, label `hoverStyle`, `selectedStyle`,
+  `focusedStyle`, and `nodeStyleResolver`. `resolveStyles` applies base, hover,
+  selection, focus and final per-node overrides, replacing each complete style.
+  Override fields support explicit null resets in `copyWith`.
+- Automatic canvas/widget header metrics use base styles only. State/per-node
+  overrides resolve during rendering and never resize headers. Widget builders
+  opt into these styles with `config.resolveStyles(context, details, states)`.
+- **Breaking:** custom canvas `linesBuilder` receives resolved styles as its fourth
+  argument; direct `resolveLines` calls require the `styles` named argument.
+  Final explicit colors/foreground paints override automatic contrast fallback.
+- Unified playground typography under Labels, replaced tile typography URL keys
+  without aliases, and added the label state/per-node scenario.
+
+## 2.1.0
+
+- Added opt-in parent title/value headers to canvas and widget labels through
+  `TreemapParentLabelConfig`. Automatic height reserves one normally styled line
+  per enabled part plus label padding; an explicit height supports custom content.
+  Parent widgets reuse the existing builder or an optional `parentBuilder`.
+- Added `TreemapLabelConfig.spacing`, defaulting to 0, shared by
+  standard child labels and parent headers. Automatic headers include the gap
+  when both parts are enabled; explicit heights stay fixed. Custom canvas lines
+  ignore it. Canvas and widget labels accept the same `config`; widget header
+  sizing reads its title/value styles, padding, spacing and text direction. Builders use
+  the same configuration to style their text and insert their own spacer.
+  Removed the redundant widget-only parent title/value style inputs.
+- **Breaking:** moved label padding to `TreemapLabelConfig.padding`, shared by
+  canvas/widget children and parent headers, and removed `TreemapStyle.labelPadding`
+  and widget `parentPadding`. The default is now `EdgeInsets.zero`; set
+  `EdgeInsets.all(6)` explicitly to preserve the old inset. Automatic headers
+  include vertical padding; fixed heights already include it. Custom widget
+  builders apply config padding themselves. The playground also defaults to zero.
+- Kept header sizing upstream of geometry through `TreemapLabelLayoutProvider`.
+  `TreemapParentLabelConfig.height` is the public height option; the coordinator
+  passes resolved numeric metrics internally and includes them in layout caching.
+  Renderers consume immutable `headerBounds`. Hover, focus and selection styles
+  do not resize headers.
+- Expanded parents reserve a top strip after level padding. Descendants stop when
+  no space remains, preserving source data and drill-down; depth-limit and aggregate
+  tiles retain ordinary labels. Header bounds participate in geometry transitions.
+- Added parent-header playground controls, automatic canvas, custom 56 px widget
+  and insufficient-space scenarios. The category card now labels Expenses, Food
+  and Other expenses. Parent headers remain opt-in; label padding now follows
+  the zero default described above.
+
 ## 2.0.0
 
 - Grouped playground padding controls into one whole-number input supporting

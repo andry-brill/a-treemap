@@ -3,6 +3,8 @@ import 'dart:math' as math;
 
 import 'model.dart';
 
+const _unspecifiedHeaderBounds = Object();
+
 /// Represents edge distances in the layout engine without Flutter dependencies.
 final class TreemapInsets {
   const TreemapInsets.fromLTRB(this.left, this.top, this.right, this.bottom);
@@ -148,6 +150,7 @@ final class TreemapGeometryNode<K> {
   TreemapGeometryNode({
     required this.key,
     required this.bounds,
+    this.headerBounds,
     required this.weight,
     required this.depth,
     required this.kind,
@@ -161,6 +164,10 @@ final class TreemapGeometryNode<K> {
   final TreemapKey<K> key;
   final TreemapNode<K>? node;
   final TreemapBounds bounds;
+
+  /// Reserved header inside an expanded source parent. Non-null even when
+  /// empty or when no descendants fit; terminal depth-limit tiles use null.
+  final TreemapBounds? headerBounds;
   final double weight;
   final int depth;
   final TreemapGeometryKind kind;
@@ -176,12 +183,16 @@ final class TreemapGeometryNode<K> {
 
   TreemapGeometryNode<K> copyWith({
     TreemapBounds? bounds,
+    Object? headerBounds = _unspecifiedHeaderBounds,
     double? opacity,
     TreemapKey<K>? parentKey,
   }) => TreemapGeometryNode<K>(
     key: key,
     node: node,
     bounds: bounds ?? this.bounds,
+    headerBounds: identical(headerBounds, _unspecifiedHeaderBounds)
+        ? this.headerBounds
+        : headerBounds as TreemapBounds?,
     weight: weight,
     depth: depth,
     kind: kind,
@@ -335,6 +346,47 @@ abstract final class TreemapGeometryDiagnostics {
           ? null
           : snapshot.index[node.parentKey];
       final container = parent?.bounds ?? snapshot.viewport;
+      final header = node.headerBounds;
+      if (header != null) {
+        if (!header.isFinite) {
+          issues.add(
+            TreemapGeometryIssue(
+              TreemapGeometryIssueCode.nonFinite,
+              'Header bounds contain a non-finite coordinate.',
+              key: node.key,
+            ),
+          );
+        } else if (header.width < -tolerance || header.height < -tolerance) {
+          issues.add(
+            TreemapGeometryIssue(
+              TreemapGeometryIssueCode.negativeSize,
+              'Header bounds have a negative dimension.',
+              key: node.key,
+            ),
+          );
+        } else if (header.left < node.bounds.left - tolerance ||
+            header.top < node.bounds.top - tolerance ||
+            header.right > node.bounds.right + tolerance ||
+            header.bottom > node.bounds.bottom + tolerance) {
+          issues.add(
+            TreemapGeometryIssue(
+              TreemapGeometryIssueCode.outsideParent,
+              'Header bounds escape their owning tile.',
+              key: node.key,
+            ),
+          );
+        }
+      }
+      if (parent?.headerBounds?.overlaps(node.bounds, tolerance: tolerance) ??
+          false) {
+        issues.add(
+          TreemapGeometryIssue(
+            TreemapGeometryIssueCode.overlap,
+            'Child bounds overlap their parent header.',
+            key: node.key,
+          ),
+        );
+      }
       if (node.bounds.left < container.left - tolerance ||
           node.bounds.top < container.top - tolerance ||
           node.bounds.right > container.right + tolerance ||
@@ -396,22 +448,29 @@ abstract final class TreemapGeometryTransition {
         nodes.add(
           b.copyWith(
             bounds: TreemapBounds.lerp(a.bounds, b.bounds, t),
+            headerBounds: _lerpHeader(a, b, t),
             opacity: a.opacity + (b.opacity - a.opacity) * t,
           ),
         );
       } else if (b != null) {
-        final anchor = _anchorFor(b, from) ?? b.bounds;
+        final anchor = _anchorFor(b, from, to) ?? b.bounds;
         nodes.add(
           b.copyWith(
             bounds: TreemapBounds.lerp(_collapsed(anchor), b.bounds, t),
+            headerBounds: b.headerBounds == null
+                ? null
+                : TreemapBounds.lerp(_collapsed(anchor), b.headerBounds!, t),
             opacity: b.opacity * t,
           ),
         );
       } else if (a != null) {
-        final anchor = _anchorFor(a, to) ?? a.bounds;
+        final anchor = _anchorFor(a, to, from) ?? a.bounds;
         nodes.add(
           a.copyWith(
             bounds: TreemapBounds.lerp(a.bounds, _collapsed(anchor), t),
+            headerBounds: a.headerBounds == null
+                ? null
+                : TreemapBounds.lerp(a.headerBounds!, _collapsed(anchor), t),
             opacity: a.opacity * (1 - t),
           ),
         );
@@ -429,9 +488,55 @@ abstract final class TreemapGeometryTransition {
   static TreemapBounds? _anchorFor<K>(
     TreemapGeometryNode<K> node,
     TreemapGeometrySnapshot<K> snapshot,
-  ) => node.parentKey == null
-      ? snapshot.viewport
-      : snapshot.index[node.parentKey]?.bounds;
+    TreemapGeometrySnapshot<K> hierarchy,
+  ) {
+    if (node.parentKey == null) return snapshot.viewport;
+    var key = node.parentKey;
+    var parent = snapshot.index[key];
+    // A whole subtree can enter/exit after header space changes. Descendants
+    // share their nearest surviving ancestor's anchor so they stay contained.
+    final visited = <TreemapKey<K>>{};
+    while (parent == null && key != null && visited.add(key)) {
+      key = hierarchy.index[key]?.parentKey;
+      parent = snapshot.index[key];
+    }
+    if (parent == null) return null;
+    final header = parent.headerBounds;
+    if (header == null) return parent.bounds;
+    return TreemapBounds.fromLTWH(
+      parent.bounds.left,
+      header.bottom,
+      parent.bounds.width,
+      math.max(0, parent.bounds.bottom - header.bottom),
+    );
+  }
+
+  static TreemapBounds? _lerpHeader<K>(
+    TreemapGeometryNode<K> a,
+    TreemapGeometryNode<K> b,
+    double t,
+  ) {
+    final from = a.headerBounds;
+    final to = b.headerBounds;
+    if (from == null && to == null) return null;
+    return TreemapBounds.lerp(
+      from ??
+          TreemapBounds.fromLTWH(
+            a.bounds.left,
+            a.bounds.top,
+            a.bounds.width,
+            0,
+          ),
+      to ??
+          TreemapBounds.fromLTWH(
+            b.bounds.left,
+            b.bounds.top,
+            b.bounds.width,
+            0,
+          ),
+      t,
+    );
+  }
 
   static TreemapBounds _collapsed(TreemapBounds bounds) =>
       TreemapBounds.fromLTWH(bounds.centerX, bounds.centerY, 0, 0);

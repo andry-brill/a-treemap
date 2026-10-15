@@ -156,16 +156,26 @@ final class TreemapChartCoordinator<K> extends ChangeNotifier
     _from = _value.displayedSnapshot ?? _target;
   }
 
-  TreemapGeometrySnapshot<K> resolveTarget(Size size) {
-    final input = _LayoutInput(_tree!, _layout, size, _controller.layoutFocus);
+  TreemapGeometrySnapshot<K> resolveTarget(
+    Size size, {
+    double? parentHeaderHeight,
+  }) {
+    final input = _LayoutInput(
+      _tree!,
+      _layout,
+      size,
+      _controller.layoutFocus,
+      parentHeaderHeight: parentHeaderHeight,
+    );
     if (_lastLayout == input && _target != null) return _target!;
-    final next = _engine.layout(
+    final next = TreemapLayoutRequest<K>(
       tree: _tree!,
       viewport: TreemapBounds.fromLTWH(0, 0, size.width, size.height),
-      config: _layout,
+      config: input.layout,
       focus: _controller.layoutFocus,
       previous: _target,
-    );
+      parentHeaderHeight: input.parentHeaderHeight,
+    ).execute(_engine);
     final previous = _target;
     if (!_sameGeometry(previous, next)) {
       _from = _value.displayedSnapshot ?? previous ?? next;
@@ -554,23 +564,25 @@ final class _LayoutInput<K> {
     this.tree,
     TreemapLayoutConfig<K> layout,
     this.size,
-    TreemapFocus<K>? focus,
-  ) : layout = layout.copyWith(
-        policy: TreemapLayoutPolicy(
-          rootRule: layout.policy.rootRule,
-          byChildDepth: Map.unmodifiable(layout.policy.byChildDepth),
-          byParentKey: Map.unmodifiable(layout.policy.byParentKey),
-          resolver: layout.policy.resolver,
-          inheritResolvedRule: layout.policy.inheritResolvedRule,
-        ),
-      ),
-      focusKey = focus?.key,
-      members = List.unmodifiable(
-        focus?.aggregateMembers.map((node) => node.key) ?? <K>[],
-      );
+    TreemapFocus<K>? focus, {
+    this.parentHeaderHeight,
+  }) : layout = layout.copyWith(
+         policy: TreemapLayoutPolicy(
+           rootRule: layout.policy.rootRule,
+           byChildDepth: Map.unmodifiable(layout.policy.byChildDepth),
+           byParentKey: Map.unmodifiable(layout.policy.byParentKey),
+           resolver: layout.policy.resolver,
+           inheritResolvedRule: layout.policy.inheritResolvedRule,
+         ),
+       ),
+       focusKey = focus?.key,
+       members = List.unmodifiable(
+         focus?.aggregateMembers.map((node) => node.key) ?? <K>[],
+       );
   final TreemapNormalizedTree<K> tree;
   final TreemapLayoutConfig<K> layout;
   final Size size;
+  final double? parentHeaderHeight;
   final TreemapKey<K>? focusKey;
   final List<K> members;
   @override
@@ -579,6 +591,7 @@ final class _LayoutInput<K> {
       identical(tree, other.tree) &&
       layout == other.layout &&
       size == other.size &&
+      parentHeaderHeight == other.parentHeaderHeight &&
       focusKey == other.focusKey &&
       listEquals(members, other.members);
   @override
@@ -586,6 +599,7 @@ final class _LayoutInput<K> {
     identityHashCode(tree),
     layout,
     size,
+    parentHeaderHeight,
     focusKey,
     Object.hashAll(members),
   );
@@ -606,6 +620,7 @@ bool _sameGeometry<K>(
     final right = b.nodes[i];
     if (left.key != right.key ||
         left.bounds != right.bounds ||
+        left.headerBounds != right.headerBounds ||
         left.opacity != right.opacity ||
         left.depth != right.depth ||
         left.kind != right.kind ||

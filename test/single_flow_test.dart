@@ -36,6 +36,8 @@ final _scale = TreemapColorScale.interpolated(
 final class _Capture implements TreemapTileLayer<String> {
   _Capture([this.delegate]);
   final TreemapTileLayer<String>? delegate;
+  @override
+  TreemapAppearanceResolver<String>? get appearance => delegate?.appearance;
   late TreemapVisualContext<String> visual;
   @override
   Widget build(BuildContext context, TreemapVisualContext<String> visual) {
@@ -71,8 +73,9 @@ final class _CountingLayout implements ITreemapLayoutStrategy<String> {
 }
 
 final class _ThemedTiles implements TreemapTileLayer<String> {
-  _ThemedTiles(this.resolver);
-  final TreemapAppearanceResolver<String> resolver;
+  _ThemedTiles(this.appearance);
+  @override
+  final TreemapAppearanceResolver<String> appearance;
   @override
   Widget build(BuildContext context, TreemapVisualContext<String> visual) =>
       Row(
@@ -83,13 +86,13 @@ final class _ThemedTiles implements TreemapTileLayer<String> {
                 data: ThemeData(brightness: brightness),
                 child: Builder(
                   builder: (context) {
-                    final appearance = visual
-                        .resolveAppearances(context, resolver)
+                    final resolved = visual
+                        .resolveAppearances(context, appearance)
                         .values
                         .first;
                     return ColoredBox(
                       key: ValueKey(brightness),
-                      color: appearance.color!,
+                      color: resolved.color!,
                     );
                   },
                 ),
@@ -100,9 +103,10 @@ final class _ThemedTiles implements TreemapTileLayer<String> {
 }
 
 final class _LiveThemedTiles implements TreemapTileLayer<String> {
-  _LiveThemedTiles(this.brightness, this.resolver);
+  _LiveThemedTiles(this.brightness, this.appearance);
   final ValueNotifier<Brightness> brightness;
-  final TreemapAppearanceResolver<String> resolver;
+  @override
+  final TreemapAppearanceResolver<String> appearance;
   int builds = 0;
 
   @override
@@ -112,9 +116,9 @@ final class _LiveThemedTiles implements TreemapTileLayer<String> {
       valueListenable: brightness,
       child: Builder(
         builder: (context) {
-          final appearances = visual.resolveAppearances(context, resolver);
+          final appearances = visual.resolveAppearances(context, appearance);
           expect(
-            visual.resolveAppearances(context, resolver),
+            visual.resolveAppearances(context, appearance),
             same(appearances),
           );
           return ColoredBox(
@@ -269,7 +273,7 @@ void main() {
         TreemapChart<String>(
           tree: _tree(),
           tiles: tiles,
-          labels: TreemapCanvasLabels(appearance: appearance),
+          labels: TreemapCanvasLabels(),
         ),
       );
       await tester.pumpAndSettle();

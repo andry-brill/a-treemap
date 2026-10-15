@@ -90,15 +90,7 @@ void main() {
               fallback: Colors.grey,
             ),
           ),
-          labels: testTreemapLabels(
-            colorScale: TreemapColorScale.interpolated(
-              minimum: 2,
-              maximum: 8,
-              colors: const [Colors.teal, Colors.deepPurple],
-              fallback: Colors.grey,
-            ),
-            config: goldenLabelConfig<String>(),
-          ),
+          labels: testTreemapLabels(config: goldenLabelConfig<String>()),
           layout: TreemapLayoutConfig(
             innerSpacing: 2,
             outerPadding: const TreemapInsets.all(8),

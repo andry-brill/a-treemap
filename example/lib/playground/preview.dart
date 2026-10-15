@@ -785,7 +785,9 @@ class _ComputedLayers extends StatelessWidget {
       targetSnapshot: snapshot,
       interactionEnabled: false,
     );
+    final tiles = composition.tiles;
     final visual = TreemapVisualContext<String>(
+      tileAppearance: tiles.appearance,
       presentation: state,
       actions: const _ReadOnlyActions(),
       textDirection: Directionality.of(context),
@@ -793,7 +795,7 @@ class _ComputedLayers extends StatelessWidget {
     );
     return Stack(
       children: [
-        Positioned.fill(child: composition.tiles.build(context, visual)),
+        Positioned.fill(child: tiles.build(context, visual)),
         if (composition.labels case final labels?)
           Positioned.fill(child: labels.build(context, visual)),
       ],

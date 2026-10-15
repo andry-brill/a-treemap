@@ -28,6 +28,9 @@ class _CaptureTiles implements TreemapTileLayer<String> {
   late TreemapVisualContext<String> visual;
 
   @override
+  TreemapAppearanceResolver<String>? get appearance => null;
+
+  @override
   Widget build(BuildContext context, TreemapVisualContext<String> visual) {
     builds++;
     this.visual = visual;

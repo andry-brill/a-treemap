@@ -593,27 +593,30 @@ List<PlaygroundProperty> propertyDefinitions() {
       1,
       max: 1,
     );
-    n(
-      '$prefix.titleSize',
-      '$title title size',
-      'Tile Appearance',
-      'Optional title font size override applied by the appearance resolver.',
-      null,
-      min: 6,
-      max: 96,
-      nullLabel: 'Inherit',
-    );
-    n(
-      '$prefix.valueSize',
-      '$title value size',
-      'Tile Appearance',
-      'Optional value font size override applied by the appearance resolver.',
-      null,
-      min: 6,
-      max: 96,
-      nullLabel: 'Inherit',
-    );
   }
+
+  for (final state in ['hover', 'selected', 'focused']) {
+    for (final part in ['title', 'value']) {
+      n(
+        'labels.$state.${part}Size',
+        '${_humanize(state)} $part size',
+        'Labels',
+        'Replace the whole $part style during $state. Base styles still size automatic headers.',
+        null,
+        min: 6,
+        max: 96,
+        nullLabel: 'Inherit',
+      );
+    }
+  }
+  c(
+    'labels.nodeStyle',
+    'Label node style resolver',
+    'Labels',
+    'Food title overrides all states with purple 16 px text. Other nodes retain state styles; automatic headers keep base metrics.',
+    'none',
+    ['none', 'foodTitle'],
+  );
 
   c(
     'labels.renderer',
@@ -630,6 +633,45 @@ List<PlaygroundProperty> propertyDefinitions() {
     'Standard text, icon/text virtualization, or category title with descendant total.',
     'standard',
     ['standard', 'icons', 'category'],
+  );
+  b(
+    'labels.parents.enabled',
+    'Parent headers',
+    'Labels',
+    'Reserve a top header inside expanded parents before laying out children.',
+    false,
+  );
+  b(
+    'labels.parents.showTitle',
+    'Parent title',
+    'Labels',
+    'Show the parent title independently of terminal tile titles.',
+    true,
+  );
+  b(
+    'labels.parents.showValue',
+    'Parent value',
+    'Labels',
+    'Show the parent descendant total or formatted value.',
+    true,
+  );
+  n(
+    'labels.parents.height',
+    'Parent header height',
+    'Labels',
+    'Auto reserves one line per enabled part, label padding, and title/value spacing when both are enabled. Explicit height includes the padding and gap.',
+    null,
+    min: 0,
+    max: 500,
+    nullLabel: 'Auto',
+  );
+  c(
+    'labels.parents.widgetBuilder',
+    'Parent widget builder',
+    'Labels',
+    'Reuse the ordinary label builder or add a folder badge inside the header.',
+    'reuse',
+    ['reuse', 'badge'],
   );
   b(
     'labels.showTitle',
@@ -737,6 +779,14 @@ List<PlaygroundProperty> propertyDefinitions() {
     max: 1,
   );
   n(
+    'labels.spacing',
+    'Title/value spacing',
+    'Labels',
+    'Gap in logical pixels between standard title and value blocks in children and parent headers. Automatic headers include it when both parts are enabled. Text scaling does not scale the gap; custom canvas lines ignore it.',
+    0,
+    max: 64,
+  );
+  n(
     'labels.maxLines',
     'Maximum title lines',
     'Labels',
@@ -782,8 +832,8 @@ List<PlaygroundProperty> propertyDefinitions() {
     'labels.padding',
     'Label padding',
     'Labels',
-    'Inset used by label rendering; it does not alter tile geometry.',
-    6,
+    'Shared child/header label inset. Vertical padding contributes to automatic header height; fixed heights already include it. Widget builders apply it themselves.',
+    0,
   );
   n(
     'labels.maximumNodes',
@@ -1560,6 +1610,7 @@ String? propertyDisabledReason(String key, PlaygroundConfig config) {
   }
   if ([
         'labels.widgetBuilder',
+        'labels.parents.widgetBuilder',
         'labels.maximumNodes',
         'labels.minimumWidth',
         'labels.minimumHeight',
@@ -1569,9 +1620,19 @@ String? propertyDisabledReason(String key, PlaygroundConfig config) {
       config.text('labels.renderer') != 'widgets') {
     return 'Used by the Widget label renderer.';
   }
+  if (key.startsWith('labels.parents.') &&
+      key != 'labels.parents.enabled' &&
+      !config.flag('labels.parents.enabled')) {
+    return 'Enable parent headers to use this property.';
+  }
   if (key == 'labels.linesBuilder' &&
       config.text('labels.renderer') != 'canvas') {
     return 'Used by the Canvas label renderer.';
+  }
+  if (key == 'labels.spacing' &&
+      config.text('labels.renderer') == 'canvas' &&
+      config.text('labels.linesBuilder') != 'default') {
+    return 'Custom canvas lines own their layout and ignore title/value spacing.';
   }
   if (key == 'labels.ellipsis' && config.text('labels.renderer') != 'canvas') {
     return 'Custom ellipsis text is used by the Canvas label renderer.';

@@ -18,12 +18,18 @@ final class TreemapVisualContext<K> {
     required this.actions,
     required this.textDirection,
     required this.textScaler,
+    this.tileAppearance,
   });
 
   final TreemapPresentationState<K> presentation;
   final TreemapActions<K> actions;
   final TextDirection textDirection;
   final TextScaler textScaler;
+
+  /// Background source declared by the tile layer, independent of build order.
+  /// Standalone compositions forward their tile layer's source here. Resources
+  /// never enter geometry or published presentation state.
+  final TreemapAppearanceResolver<K>? tileAppearance;
   final _resources = _TreemapFrameResources<K>();
 
   /// Shares appearance results between layers using the same resolver.
@@ -31,6 +37,25 @@ final class TreemapVisualContext<K> {
     BuildContext context,
     TreemapAppearanceResolver<K> resolver,
   ) => _resources.resolve(context, presentation, resolver);
+
+  /// Resolves the source declared by the tile layer.
+  /// Results share the ordinary frame/environment cache with tile painting.
+  /// A missing source is an error; no background color is guessed.
+  Map<TreemapKey<K>, TreemapAppearance> resolveTileAppearances(
+    BuildContext context,
+  ) {
+    final resolver = tileAppearance;
+    if (resolver == null) {
+      throw FlutterError(
+        'No tile appearance source is available. Use TreemapTiles, declare '
+        'TreemapTileLayer.appearance on a custom tile layer, '
+        'or set appearance on TreemapNoopTileLayer, TreemapCompositeTileLayer '
+        'or TreemapBuilderTileLayer. Standalone compositions must forward their '
+        'tile source to TreemapVisualContext.tileAppearance.',
+      );
+    }
+    return resolveAppearances(context, resolver);
+  }
 }
 
 /// Internal frame-scoped memoization. Never stored in published presentation.

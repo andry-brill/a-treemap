@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../controller.dart';
+import '../presentation/state.dart';
 import 'color_scale.dart';
 import 'style.dart';
 
@@ -14,11 +15,56 @@ typedef TreemapLabelColorResolver =
     Color Function(TreemapAppearance appearance);
 
 /// Builds arbitrary styled lines for the optimized canvas label renderer.
+/// The fourth argument contains resolved base/state/per-node typography. Both
+/// styles are populated; the callback owns its returned styles and colors.
 typedef TreemapCanvasLabelLinesBuilder<K> =
     Iterable<TreemapCanvasLabelLine> Function(
       TreemapNodeDetails<K> details,
       TreemapAppearance appearance,
       Locale? locale,
+      TreemapLabelStyle styles,
+    );
+
+const _unchangedLabelStyle = Object();
+
+/// Optional title and value overrides. Each supplied style replaces the whole
+/// preceding style; null leaves that part unchanged during resolution.
+@immutable
+final class TreemapLabelStyle {
+  const TreemapLabelStyle({this.titleStyle, this.valueStyle});
+
+  final TextStyle? titleStyle;
+  final TextStyle? valueStyle;
+
+  /// Omitted arguments are preserved; explicit null clears an override.
+  TreemapLabelStyle copyWith({
+    Object? titleStyle = _unchangedLabelStyle,
+    Object? valueStyle = _unchangedLabelStyle,
+  }) => TreemapLabelStyle(
+    titleStyle: identical(titleStyle, _unchangedLabelStyle)
+        ? this.titleStyle
+        : titleStyle as TextStyle?,
+    valueStyle: identical(valueStyle, _unchangedLabelStyle)
+        ? this.valueStyle
+        : valueStyle as TextStyle?,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      other is TreemapLabelStyle &&
+      titleStyle == other.titleStyle &&
+      valueStyle == other.valueStyle;
+
+  @override
+  int get hashCode => Object.hash(titleStyle, valueStyle);
+}
+
+/// Final rendering-only label overrides, after hover, selection and focus.
+typedef TreemapLabelStyleResolver<K> =
+    TreemapLabelStyle? Function(
+      BuildContext context,
+      TreemapNodeDetails<K> details,
+      Set<TreemapVisualState> states,
     );
 
 /// One styled text line painted by the canvas label implementation.
@@ -35,7 +81,11 @@ final class TreemapCanvasLabelLine {
 Color _contrastingTreemapLabelColor(TreemapAppearance appearance) =>
     treemapContrastingTextColor(appearance.color ?? const Color(0x00000000));
 
-/// Configures text produced and painted by the canvas label implementation.
+/// Shared label configuration for canvas labels and custom widget builders.
+///
+/// Canvas labels apply formatting and text policies directly. Widget labels
+/// use the styles, [padding], [spacing] and [textDirection] for header sizing;
+/// builders own their content and apply these settings themselves.
 final class TreemapLabelConfig<K> {
   const TreemapLabelConfig({
     this.showTitle = true,
@@ -50,6 +100,12 @@ final class TreemapLabelConfig<K> {
       fontSize: 12,
     ),
     this.valueStyle = const TextStyle(fontSize: 11),
+    this.hoverStyle,
+    this.selectedStyle,
+    this.focusedStyle,
+    this.nodeStyleResolver,
+    this.padding = EdgeInsets.zero,
+    this.spacing = 0,
     this.valueColorOpacity = .82,
     this.colorResolver = _contrastingTreemapLabelColor,
     this.linesBuilder,
@@ -59,6 +115,7 @@ final class TreemapLabelConfig<K> {
     this.alignment = Alignment.topLeft,
     this.textDirection,
   }) : assert(weightFractionDigits >= 0),
+       assert(spacing >= 0 && spacing < double.infinity),
        assert(valueColorOpacity >= 0 && valueColorOpacity <= 1),
        assert(maxLines > 0),
        assert(ellipsis.length > 0);
@@ -75,11 +132,38 @@ final class TreemapLabelConfig<K> {
   /// Decimal places used by the built-in weight formatter for non-integers.
   final int weightFractionDigits;
 
-  /// Base title style used when the resolved tile appearance has no override.
+  /// Base title style and nominal title metrics for automatic parent headers.
   final TextStyle titleStyle;
 
-  /// Base value style used when the resolved tile appearance has no override.
+  /// Base value style and nominal value metrics for automatic parent headers.
   final TextStyle valueStyle;
+
+  /// Rendering-only hover overrides; automatic header metrics use base styles.
+  final TreemapLabelStyle? hoverStyle;
+
+  /// Rendering-only selection overrides, applied after [hoverStyle].
+  final TreemapLabelStyle? selectedStyle;
+
+  /// Rendering-only keyboard focus overrides, applied after [selectedStyle].
+  final TreemapLabelStyle? focusedStyle;
+
+  /// Final rendering-only overrides. Never invoked during header measurement.
+  final TreemapLabelStyleResolver<K>? nodeStyleResolver;
+
+  /// Insets for child labels and parent headers, in logical pixels.
+  ///
+  /// Defaults to zero and is independent of text scaling and layout padding.
+  /// Canvas labels apply this to standard and custom lines. Widget builders
+  /// apply it themselves. Automatic headers include [EdgeInsets.vertical];
+  /// an explicit parent height already includes this padding.
+  final EdgeInsets padding;
+
+  /// Gap between nonempty standard title and value blocks, in logical pixels.
+  ///
+  /// Shared by ordinary labels and parent headers; unaffected by text scaling.
+  /// Custom canvas [linesBuilder] output keeps its own layout and ignores this
+  /// value. Widget builders insert their own spacer using this same setting.
+  final double spacing;
 
   /// Opacity applied to the resolved value color when [valueStyle] has none.
   final double valueColorOpacity;
@@ -99,6 +183,8 @@ final class TreemapLabelConfig<K> {
   final Alignment alignment;
   final TextDirection? textDirection;
 
+  /// Copies settings. Explicit null clears any of the four style override
+  /// fields; omitting those arguments preserves their current values.
   TreemapLabelConfig<K> copyWith({
     bool? showTitle,
     bool? showValue,
@@ -109,6 +195,12 @@ final class TreemapLabelConfig<K> {
     int? weightFractionDigits,
     TextStyle? titleStyle,
     TextStyle? valueStyle,
+    Object? hoverStyle = _unchangedLabelStyle,
+    Object? selectedStyle = _unchangedLabelStyle,
+    Object? focusedStyle = _unchangedLabelStyle,
+    Object? nodeStyleResolver = _unchangedLabelStyle,
+    EdgeInsets? padding,
+    double? spacing,
     double? valueColorOpacity,
     TreemapLabelColorResolver? colorResolver,
     TreemapCanvasLabelLinesBuilder<K>? linesBuilder,
@@ -128,6 +220,20 @@ final class TreemapLabelConfig<K> {
     weightFractionDigits: weightFractionDigits ?? this.weightFractionDigits,
     titleStyle: titleStyle ?? this.titleStyle,
     valueStyle: valueStyle ?? this.valueStyle,
+    hoverStyle: identical(hoverStyle, _unchangedLabelStyle)
+        ? this.hoverStyle
+        : hoverStyle as TreemapLabelStyle?,
+    selectedStyle: identical(selectedStyle, _unchangedLabelStyle)
+        ? this.selectedStyle
+        : selectedStyle as TreemapLabelStyle?,
+    focusedStyle: identical(focusedStyle, _unchangedLabelStyle)
+        ? this.focusedStyle
+        : focusedStyle as TreemapLabelStyle?,
+    nodeStyleResolver: identical(nodeStyleResolver, _unchangedLabelStyle)
+        ? this.nodeStyleResolver
+        : nodeStyleResolver as TreemapLabelStyleResolver<K>?,
+    padding: padding ?? this.padding,
+    spacing: spacing ?? this.spacing,
     valueColorOpacity: valueColorOpacity ?? this.valueColorOpacity,
     colorResolver: colorResolver ?? this.colorResolver,
     linesBuilder: linesBuilder ?? this.linesBuilder,
@@ -150,6 +256,12 @@ final class TreemapLabelConfig<K> {
       weightFractionDigits == other.weightFractionDigits &&
       titleStyle == other.titleStyle &&
       valueStyle == other.valueStyle &&
+      hoverStyle == other.hoverStyle &&
+      selectedStyle == other.selectedStyle &&
+      focusedStyle == other.focusedStyle &&
+      nodeStyleResolver == other.nodeStyleResolver &&
+      padding == other.padding &&
+      spacing == other.spacing &&
       valueColorOpacity == other.valueColorOpacity &&
       colorResolver == other.colorResolver &&
       linesBuilder == other.linesBuilder &&
@@ -160,7 +272,7 @@ final class TreemapLabelConfig<K> {
       textDirection == other.textDirection;
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     showTitle,
     showValue,
     titleFormatter,
@@ -170,6 +282,12 @@ final class TreemapLabelConfig<K> {
     weightFractionDigits,
     titleStyle,
     valueStyle,
+    hoverStyle,
+    selectedStyle,
+    focusedStyle,
+    nodeStyleResolver,
+    padding,
+    spacing,
     valueColorOpacity,
     colorResolver,
     linesBuilder,
@@ -178,15 +296,40 @@ final class TreemapLabelConfig<K> {
     ellipsis,
     alignment,
     textDirection,
-  );
+  ]);
 
-  /// Resolves the lines painted for one visible leaf.
+  /// Resolves base → hovered → selected → focused → per-node typography.
+  ///
+  /// Both returned styles are populated. A nonnull override replaces the whole
+  /// preceding TextStyle. This does not apply contrast colors or value opacity.
+  /// Widget builders may call this during building, never during measurement.
+  TreemapLabelStyle resolveStyles(
+    BuildContext context,
+    TreemapNodeDetails<K> details,
+    Set<TreemapVisualState> states,
+  ) {
+    var title = titleStyle;
+    var value = valueStyle;
+    void apply(TreemapLabelStyle? override) {
+      title = override?.titleStyle ?? title;
+      value = override?.valueStyle ?? value;
+    }
+
+    if (states.contains(TreemapVisualState.hovered)) apply(hoverStyle);
+    if (states.contains(TreemapVisualState.selected)) apply(selectedStyle);
+    if (states.contains(TreemapVisualState.focused)) apply(focusedStyle);
+    apply(nodeStyleResolver?.call(context, details, states));
+    return TreemapLabelStyle(titleStyle: title, valueStyle: value);
+  }
+
+  /// Resolves lines for a label region using [resolveStyles] output.
   List<TreemapCanvasLabelLine> resolveLines(
     TreemapNodeDetails<K> details,
     TreemapAppearance appearance,
-    Locale? locale,
-  ) {
-    final customLines = linesBuilder?.call(details, appearance, locale);
+    Locale? locale, {
+    required TreemapLabelStyle styles,
+  }) {
+    final customLines = linesBuilder?.call(details, appearance, locale, styles);
     if (customLines != null) return List.unmodifiable(customLines);
 
     final fallbackLabel = details.key.sourceKey?.toString() ?? fallbackTitle;
@@ -207,16 +350,13 @@ final class TreemapLabelConfig<K> {
       if (showTitle && title.isNotEmpty)
         TreemapCanvasLabelLine(
           text: title,
-          style: _withFallbackTextColor(
-            appearance.titleStyle ?? titleStyle,
-            baseColor,
-          ),
+          style: _withFallbackTextColor(styles.titleStyle!, baseColor),
         ),
       if (showValue && value.isNotEmpty)
         TreemapCanvasLabelLine(
           text: value,
           style: _withFallbackTextColor(
-            appearance.valueStyle ?? valueStyle,
+            styles.valueStyle!,
             baseColor.withValues(alpha: valueColorOpacity),
           ),
         ),

@@ -26,6 +26,8 @@ import 'package:any_treemap/any_treemap.dart';
 
 ## Example playground
 
+![App Example](https://raw.githubusercontent.com/andry-brill/a-treemap/main/example/web/categories.png)
+
 Run the shared playground from `example`:
 
 ```console
@@ -33,7 +35,7 @@ flutter pub get
 flutter run -d chrome
 ```
 
-The **Example** chooser loads one of 52 named presets. **Data** selects a shared dataset, and the property panel controls layout, colors, visual layers, interaction, accessibility, animation, and preview dimensions. Property info buttons explain each setting. On narrow screens, open **Properties** from the toolbar.
+The **Example** chooser loads one of 59 named presets. **Data** selects a shared dataset, and the property panel controls layout, colors, visual layers, interaction, accessibility, animation, and preview dimensions. Property info buttons explain each setting. On narrow screens, open **Properties** from the toolbar.
 
 Preset links contain only an example key, such as `?example=appearance-auto-visible`. Editing any property switches to **Custom** and puts the complete configuration, including `data`, in the URL. **Copy link** includes valid pending edits. Browser Back/Forward restores committed changes; navigation, current selection, hover, and tooltips remain temporary.
 
@@ -97,7 +99,7 @@ class ProductTreemap extends StatelessWidget {
       child: TreemapChart<String>(
         tree: tree,
         tiles: TreemapTiles(appearance: appearance),
-        labels: TreemapCanvasLabels(appearance: appearance),
+        labels: TreemapCanvasLabels(),
         tooltip: TreemapTooltip(
           builder: (context, details) => Text(
             '${details.label}: ${details.weight}',
@@ -122,10 +124,10 @@ The rendering pipeline has four separate responsibilities:
 
 1. `TreemapNode<K>` describes caller-owned data. `TreemapNormalizer` validates it and derives branch totals.
 2. `TreemapLayoutEngine<K>` turns the hierarchy into a `TreemapGeometrySnapshot<K>` for a viewport and focus.
-3. `TreemapChart<K>` computes layouts and owns immutable `TreemapPresentationState<K>` containing destination/displayed snapshots and color domains. The controller owns navigation and uncontrolled selection; the chart owns transient interaction.
+3. `TreemapChart<K>` resolves optional parent-label metrics from configuration and inherited typography before geometry, then computes layouts and owns immutable `TreemapPresentationState<K>` containing destination/displayed snapshots and color domains. The controller owns navigation and uncontrolled selection; the chart owns transient interaction.
 4. Replaceable layers read `visual.presentation`; surrounding chrome reads `TreemapPresentationScope`. Presentation updates flow to consumers without writing layouts back to the controller.
 
-This separation lets an application replace labels without reimplementing navigation, use the layout engine without constructing widgets, or change colors without changing geometry.
+This separation lets an application replace labels without reimplementing navigation, use the layout engine without constructing widgets, or change colors without changing geometry. Opt-in parent headers affect geometry through numeric sizing inputs; painting never writes measurements back into layout.
 
 ```mermaid
 flowchart TD
@@ -134,11 +136,15 @@ flowchart TD
     Tree --> Controller["Navigation and uncontrolled selection<br/>TreemapController · TreemapFocus"]
     Tree --> Coordinator["Chart update pipeline<br/>TreemapChart · TreemapChartCoordinator (internal)"]
     Controller --> Coordinator
+    LabelInputs["Parent label configuration and base typography<br/>TreemapLabelConfig + TreemapParentLabelConfig"] --> Metrics["Input-side single-line metrics<br/>TreemapLabelLayer.resolveParentHeaderHeight"]
+    Metrics -->|Resolved numeric height| Coordinator
     Inputs["Configuration, viewport and transient commands<br/>TreemapLayoutConfig · TreemapInteractionConfig<br/>TreemapSelectionConfig · TreemapActions"] --> Coordinator
-    Coordinator --> Target["Target layout and visible domain<br/>TreemapLayoutEngine · TreemapGeometrySnapshot"]
+    Coordinator -->|Internal geometry request| Target["Target layout and visible domain<br/>TreemapLayoutEngine · TreemapGeometrySnapshot"]
     Target --> Frame["Interaction reconciliation and displayed frame<br/>TreemapGeometryTransition · TreemapPresentationProjector (internal)"]
     Frame --> Presentation["Immutable output<br/>TreemapPresentationState"]
     Presentation --> Visual["Rendering context and shared appearances<br/>TreemapVisualContext · TreemapAppearanceResolver"]
+    TileSource["Declared tile appearance source<br/>TreemapTileLayer.appearance"] --> Visual
+    LabelOverrides["Label state and per-node typography<br/>TreemapLabelConfig.resolveStyles"] --> Views
     Visual --> Views["Visual and surrounding layers<br/>TreemapTiles · TreemapCanvasLabels · TreemapTooltip<br/>TreemapSemantics · TreemapLegendView · TreemapBreadcrumbsView"]
     Presentation --> Observers["Published output<br/>TreemapPresentationScope · onPresentationChanged"]
     Commands["Navigation and selection commands<br/>TreemapActions · TreemapController"] --> Controller
@@ -551,13 +557,13 @@ Breadcrumbs consume these entries without retaining the complete source tree.
 - `hitTest(x, y, {padding})` - deepest visible node containing a point.
 - `toStringDeep({maximumNodes})` - bounded diagnostic dump.
 
-Tile layers often use all visible nodes to paint hierarchy. Labels, semantics, and tooltips normally use only the deepest visible blocks exposed by `TreemapVisualContext.visibleLeafNodes`.
+Tile layers use visible geometry to paint hierarchy. Labels normally target `visual.presentation.visibleLeafNodes`; opt-in parent labels occupy reserved header regions. Semantics exposes visible nodes, and pointer hit testing selects the deepest rectangle at the pointer.
 
 **`TreemapNodeDetails<K>`** - application-facing callback and builder view that combines geometry with a complete navigation path.
 
 - `geometry` - underlying `TreemapGeometryNode<K>`.
 - `path` - immutable root-to-node path.
-- `key`, `bounds`, `weight`, `depth`, `label` - convenient geometry projections.
+- `key`, `bounds`, `headerBounds`, `weight`, `depth`, `label` - convenient geometry projections. `bounds` always describes the full tile; nullable `headerBounds` describes its reserved parent-label region.
 - `node` - original source node when this is source geometry.
 - `color` - source node's direct color or scale input.
 - `aggregateMembers` - source members for generated aggregate geometry.
@@ -592,21 +598,22 @@ Surviving keys interpolate their rectangles and opacity. Entering or exiting key
 
 ## Presentation contracts and context
 
-**`TreemapTileLayer<K>.build(context, visual)`** - required contract for rendering the complete tile surface.
+**`TreemapTileLayer<K>`** - required contract owning tile rendering and its shared background source.
 
-- `context` - Flutter build context for inherited theme, locale, and application state.
-- `visual` - immutable presentation, keyed actions and inherited environment.
-- return value - widget filling the chart viewport.
+- `appearance` - nullable `TreemapAppearanceResolver<K>` getter declaring the background source before any layer builds. Every implementation supplies this getter; wrappers can delegate to their tile layer. Return `null` when no shared source is needed. Canvas labels require a non-null source.
+- `build(context, visual)` - returns a widget filling the chart viewport. `context` supplies inherited theme, locale and application state; `visual` supplies immutable presentation, keyed actions and inherited environment.
 
 A tile layer may render source ancestors as well as deepest blocks. `TreemapChart` requires this contract but does not require a particular painter.
+The chart reads `tiles.appearance` directly and passes it to viewport and surrounding
+rendering contexts. This getter must not depend on `build` having run. Geometry and
+published presentation remain free of styling objects.
 
-**`TreemapLabelLayer<K>.build(context, visual)`** - optional contract for rendering content inside resolved node bounds.
+**`TreemapLabelLayer<K>`** - optional chart layer owning parent-header sizing and label rendering.
 
-- `context` - Flutter build context.
-- `visual` - current immutable visual state.
-- return value - label surface filling the chart viewport.
+- `resolveParentHeaderHeight(context)` - required method returning a finite, non-negative total header height, or `null` to disable reserved headers. Every custom layer implements it; wrappers may delegate. The chart calls it before geometry using configuration and inherited text metrics, without presentation output or rendering callbacks.
+- `build(context, visual)` - returns a label surface filling the chart viewport. `context` supplies the Flutter build context and `visual` supplies the current immutable presentation. Rendering happens after geometry is resolved.
 
-Label implementations normally iterate `visual.visibleLeafNodes` to avoid drawing over their own descendants.
+Label implementations normally iterate `visual.presentation.visibleLeafNodes`. Opt-in parent headers additionally use the reserved `headerBounds` from the same immutable geometry, excluding header-owning nodes from ordinary leaf labels.
 
 **`TreemapSemanticsLayer<K>.build(context, visual)`** - optional contract for exposing canvas-rendered nodes to assistive technology.
 
@@ -644,7 +651,7 @@ The chart applies one surrounding layer. Breadcrumbs and legends implement this 
 
 Custom content receives the same presentation and actions without implementing viewport composition itself.
 
-**`TreemapVisualContext<K>`** carries the read-only presentation, keyed `actions`, `textDirection` and `textScaler` shared by visual implementations. `resolveAppearances(context, resolver)` reuses the same appearance results for tile and label layers within a frame.
+**`TreemapVisualContext<K>`** carries the read-only presentation, keyed `actions`, `textDirection` and `textScaler` shared by visual implementations. `tileAppearance` is the optional source declared by the tile layer. `resolveTileAppearances(context)` resolves that source for labels or custom layers. Appearance ownership stays with tiles, including invisible tiles. `resolveAppearances(context, resolver)` remains available for layers with an independent paint source. Both share a frame- and build-context-scoped cache.
 
 **`TreemapPresentationState<K>`** is the immutable output consumed by every layer and surrounding view:
 
@@ -700,17 +707,23 @@ It resolves appearance for every geometry node and paints background, fills, gra
 
 **`TreemapNoopTileLayer<K>`** - explicit invisible tile layer for geometry-only or interaction-only chart hosts.
 
-- `build(context, visual)` - returns an expanding empty widget.
+- `appearance` - optional background source for labels and other consumers; it describes the background they should assume without painting it.
+- `build(context, visual)` - returns an expanding empty widget, regardless of whether an appearance is declared.
 
-Use it to satisfy the required tile contract without implying any package-defined appearance.
+Omit the source for geometry-only charts or arbitrary widget labels that do not
+consume it. Canvas labels require a tile-owned source. The library never invents
+a palette or paints rectangles on behalf of an invisible tile layer.
 
 **`TreemapCompositeTileLayer<K>`** - stacks multiple independent tile layers over the same geometry.
 
 - `layers` - immutable ordered layer list; earlier layers are below later layers.
+- `appearance` - optional explicit background source shared with labels. No source is inferred from child order, even when there is only one child. Child layers keep their independent paint sources.
 
 This is useful when a base painter, domain overlay, and debugging overlay should remain separate implementations.
 
 **`TreemapBuilderTileLayer<K>`** - widget-per-deepest-block tile implementation for fully custom visual content.
+
+- `appearance` - optional declared background source shared with labels; builders remain responsible for painting it.
 
 - `builder` - required callback receiving context, node details, and visual states.
 - `maximumNodes` - optional positive cap; the largest blocks are retained first.
@@ -720,14 +733,45 @@ The layer supplies positioning but no clipping or styling. Choose it for images,
 
 **`TreemapCanvasLabels<K>`** - high-throughput text label layer using cached `TextPainter` layouts.
 
-- `appearance` - required resolver used to derive text-compatible tile appearance.
 - `config` - formatting and layout policy; defaults to `TreemapLabelConfig<K>()`.
 
 It clips every label independently, constrains text to available width, and omits a complete label block when it cannot fit vertically. Choose it for large charts whose labels are text.
 
+Canvas labels automatically consume `TreemapTileLayer.appearance` for contrast, `colorResolver`
+and custom `linesBuilder`. The standard tile painter and labels reuse the same
+resolved map when built with the same context. Resolution is independent of
+layer build order, respects each build context's inherited environment, and
+refreshes on subsequent frames. Automatic parent-header metrics still depend
+only on base label styles.
+
+Custom widget backgrounds cannot be inferred. Declare the source on the custom
+tile layer, including `TreemapNoopTileLayer` when rendering over an external
+background. Canvas labels have no appearance input. A missing tile source raises
+an actionable error rather than guessing a color, even with explicit text colors.
+A composite explicitly declares which source represents the background beneath
+its labels; the library does not blend its children's paints or gradients.
+
+```dart
+// Ordinary chart: appearance is configured once, with tiles.
+tiles: TreemapTiles(appearance: appearance),
+labels: TreemapCanvasLabels(config: labelConfig),
+
+// Invisible tiles describe the background without painting it:
+tiles: TreemapNoopTileLayer<String>(appearance: backgroundAppearance),
+labels: TreemapCanvasLabels(config: labelConfig),
+```
+
+Standalone compositions forward their tile layer's declared source to
+`TreemapVisualContext(tileAppearance: tileLayer.appearance, ...)` before building
+layers. Sources are never registered as a side effect of painting.
+Custom widget labels may call `visual.resolveTileAppearances(context)` and use
+the returned background with their color resolver. Arbitrary builders remain
+responsible for applying their own colors.
+
 **`TreemapWidgetLabels<K>`** - tightly positions an arbitrary widget inside every retained deepest visible block.
 
 - `builder` - required callback receiving context, node details, and visual states.
+- `config` - shared `TreemapLabelConfig<K>`. Automatic parent sizing reads its title/value styles, padding, spacing and text direction; builders apply these settings to their own widgets.
 - `maximumNodes` - optional positive cap; largest blocks are retained first.
 - `ignorePointer` - whether label widgets ignore input; defaults to true so chart gestures remain available.
 - `clipBehavior` - per-block clipping; defaults to `Clip.hardEdge`.
@@ -750,6 +794,135 @@ Choose this layer for icons, badges, SVGs, images, animations, or rich compositi
 
 ## Appearance and color
 
+### Parent labels and header geometry
+
+Pass `parentLabels` to either included label layer to label expanded parents:
+
+```dart
+labels: TreemapCanvasLabels<String>(
+  config: labelConfig.copyWith(spacing: 6),
+  parentLabels: const TreemapParentLabelConfig(
+    showTitle: true,
+    showValue: true,
+    // height: 56, // Optional total allocation, including padding and spacing.
+  ),
+),
+```
+
+**`TreemapParentLabelConfig`** has independent `showTitle` and `showValue`
+flags (both default true) and nullable `height`. Omit `parentLabels`, or disable
+both flags, to retain ordinary leaf-only labels without reserving header space.
+`height` is the public option for the allocation; `copyWith(height: null)` restores
+automatic sizing. Explicit heights must be finite and nonnegative; zero reserves
+an empty header while allowing children to use the content area.
+
+Automatic height is one nominal title line, one nominal value line (only for
+enabled parts), `config.padding.vertical`, and `spacing` when both parts
+are enabled. Spacing defaults to 0 and stays fixed in logical pixels as text
+scaling changes. Text measurement respects configured font metrics, line-height
+multipliers, locale and accessibility text scaling. Automatic parent
+text uses one line per part, independently of child `maxLines`. Fixed-height
+headers use the existing line limit within the allocation. Parent text reuses
+formatters, colors, alignment, direction and overflow behavior; it defaults to
+top-left placement. Custom canvas `linesBuilder` retains its existing precedence
+and owns its content; it ignores `spacing` during painting and automatic
+allocation. Provide an explicit height for additional custom lines.
+
+Standard canvas labels insert a gap only between two nonempty title/value blocks,
+after the complete title even when it wraps. Automatic header sizing uses the
+visibility flags without calling formatters; if a formatter returns empty text,
+the nominal allocation remains reserved but painting omits the gap. An explicit
+header height already includes any gap and is never increased by spacing.
+
+Both renderers size headers exclusively from base `TreemapLabelConfig.titleStyle`
+and `valueStyle`. Label node callbacks and hover/selection/focus styles change
+rendering but never resize the header. Measurement never calls resolvers, builders
+or formatters. If the complete text block cannot fit vertically, it is omitted; children still use whatever content
+area remains below the reserved header.
+
+**`TreemapWidgetLabels`** accepts the same `parentLabels`, plus an optional
+`parentBuilder` with the ordinary `(context, details, states)` signature. Without
+it, the existing builder also renders parents. Widgets receive tight header
+constraints and default clipping. `details.bounds` remains the full tile;
+`details.headerBounds` identifies the header. The builder owns title/value
+visibility, styling and padding; configuration does not inspect or rewrite its
+widget tree.
+
+Pass the same `TreemapLabelConfig` to either renderer through `config`. Widget
+header sizing reads `config.titleStyle`, `config.valueStyle`, `config.padding`,
+`config.spacing` and `config.textDirection`, with inherited locale and text scaling.
+Builders apply `Padding(padding: labelConfig.padding, child: ...)`, apply the
+styles and direction to their text, and insert their own
+`SizedBox(height: labelConfig.spacing)` only when both parts are shown. Use that
+same configuration for child and parent builders. Canvas-only `linesBuilder`
+is not invoked by widget labels and does not suppress their spacing.
+
+```dart
+const labelConfig = TreemapLabelConfig<String>(
+  titleStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+  valueStyle: TextStyle(fontSize: 12),
+  padding: EdgeInsets.all(6), // Explicit inset; the default is EdgeInsets.zero.
+  spacing: 6,
+);
+
+final labels = TreemapWidgetLabels<String>(
+  config: labelConfig,
+  parentLabels: const TreemapParentLabelConfig(),
+  builder: buildLabel, // Uses labelConfig styles, padding, direction and spacing.
+);
+```
+
+For automatic widget allocations, `config.titleStyle` and `config.valueStyle`
+describe the expected text, while `config.padding` describes its padding.
+Defaults are a 12 px semibold title, 11 px value, zero spacing and zero padding.
+Supply the styles used by your builder, or set an explicit total header height.
+Widget builders call `labelConfig.resolveStyles(context, details, states)` to
+apply configured interaction and node-specific typography. Those overrides affect
+rendering only; base styles remain the automatic allocation budget.
+Configuration never rewrites the widget tree; visibility, formatting and applying
+padding remain the builder's responsibility.
+The library adds no padding wrapper around custom widgets. Canvas labels apply
+the same config padding to standard text and custom `linesBuilder` output.
+Padding is shared by children and parent headers and stays fixed in logical
+pixels as text scales. It changes automatic header height, while explicit header
+height already includes it. Layout `levelPadding` remains separate.
+
+When migrating, replace `TreemapStyle.labelPadding` and widget `parentPadding`
+with `TreemapLabelConfig.padding`. Set `padding: EdgeInsets.all(6)` explicitly
+to retain the previous default inset; otherwise labels now have no inset.
+
+`maximumNodes` limits the combined parent/leaf label candidates by label-region
+area; culling does not reclaim
+reserved geometry. Widget tile builders retain their existing behavior.
+
+**`TreemapLabelLayer.resolveParentHeaderHeight(BuildContext)`** reads configuration
+and inherited metrics before layout, returning a number or null. Custom label
+wrappers delegate this method when wrapping the included label layers.
+It must not read presentation output or measure built widgets. The chart forwards
+the number to its coordinator, which passes it in an internal geometry request
+and includes it in layout caching. Null disables reserved headers. The caller's
+`TreemapLayoutConfig` remains unchanged. Rendering remains downstream of
+immutable geometry and never updates the controller or triggers a measurement loop.
+
+Source branches eligible for expansion first apply `levelPadding`, then reserve
+a top header strip and lay out children below it. The height includes label
+padding and spacing; level padding is separate and applied once. It does not change a parent's weight
+or its sibling allocation.
+
+Public headless calls to `TreemapLayoutEngine.layout`, `layoutAsync`, and
+`TreemapPresentationState.fromData` do not reserve parent headers. Header sizing
+belongs to the chart's label configuration. Internally, only the resolved number
+is passed to geometry, including isolate execution; text measurement and Flutter
+objects stay on the UI side.
+
+**`TreemapGeometryNode.headerBounds`** is null for ordinary terminal labels and
+non-null (possibly empty) for reserved headers. It is retained even if child
+filtering or exhausted space removes every descendant. Bounds are capped to the
+available inset rectangle and participate in copying, diagnostics and transitions.
+When no child area remains, the parent retains its data, total and drill-down
+capability. Branches stopped by `maxVisibleDepth` and aggregate tiles retain
+ordinary full-tile labels. The current root/focus is not given an extra wrapper.
+
 **`TreemapAppearanceResolver<K>`** - converts source color data and visual states into the complete appearance consumed by standard tiles and canvas labels.
 
 - `colorScale` - required scale for category, numeric, or missing color inputs.
@@ -759,26 +932,23 @@ Choose this layer for icons, badges, SVGs, images, animations, or rich compositi
 
 Resolution starts with a direct source `Color`, otherwise sends the source color value or resolved weight through `colorScale`. It then merges base, hovered, selected, focused, and node-specific appearances in that order.
 
-**`TreemapAppearance`** - paint and text styling for one tile state or override layer.
+**`TreemapAppearance`** - rectangle paint styling for one tile state or override layer.
 
 - `color` - optional solid fill.
 - `gradient` - optional gradient fill.
 - `border` - border side; defaults to none.
 - `borderRadius` - tile corner radius; defaults to zero.
 - `opacity` - value from `0` to `1`; defaults to `1`.
-- `titleStyle` - optional canvas-title style override.
-- `valueStyle` - optional canvas-value style override.
 
 `merge(other)` treats null/neutral values as absent overrides and multiplies opacity. This lets a hover appearance add a border without restating the base fill.
 
-**`TreemapStyle`** - groups the chart-wide base appearance, interaction-state overrides, background, and label padding.
+**`TreemapStyle`** - groups the chart-wide base appearance, interaction-state overrides and background.
 
 - `backgroundColor` - canvas background behind geometry; defaults to transparent.
 - `tileAppearance` - base override merged onto every scale-derived fill.
 - `hoverAppearance` - override applied to hovered nodes; defaults to a two-pixel white border.
 - `selectedAppearance` - override applied to selected nodes; defaults to a three-pixel amber border.
 - `focusedAppearance` - override applied to the keyboard target; defaults to neutral.
-- `labelPadding` - space reserved inside each tile for canvas text; defaults to six pixels on every edge.
 
 The style is consumed by `TreemapAppearanceResolver`; it does not affect geometry spacing or minimum dimensions.
 
@@ -864,7 +1034,7 @@ TreemapChart<String>(
   tree: tree,
   layout: const TreemapLayoutConfig(maxVisibleDepth: 1),
   tiles: TreemapTiles(appearance: appearance),
-  labels: TreemapCanvasLabels(appearance: appearance),
+  labels: TreemapCanvasLabels(),
   surrounding: TreemapLegend(
     scale: scale,
     config: const TreemapLegendConfig.bar(),
@@ -929,7 +1099,7 @@ Use a higher count for a smoother custom gradient at the cost of more color stop
 
 ### Canvas labels
 
-**`TreemapLabelConfig<K>`** - formatting, measurement, overflow, and text-style policy for `TreemapCanvasLabels<K>`.
+**`TreemapLabelConfig<K>`** - shared label configuration. Canvas labels apply its formatting, measurement, overflow and text-style policy. Widget labels read its title/value styles, padding, spacing and text direction for automatic header sizing; custom builders own rendering.
 
 - `showTitle` - whether the built-in resolver emits a title line; defaults to true.
 - `showValue` - whether the built-in resolver emits a value line; defaults to true.
@@ -938,16 +1108,56 @@ Use a higher count for a smoother custom gradient at the cost of more color stop
 - `localizedValueFormatter` - optional formatter receiving node details and the inherited `Locale`.
 - `fallbackTitle` - title used when neither a source label nor a source key is available, normally for an aggregate; defaults to `Other`.
 - `weightFractionDigits` - decimal precision for non-integer default weights; defaults to `2`.
-- `titleStyle` - base title style when appearance does not override it.
-- `valueStyle` - base value style when appearance does not override it.
+- `titleStyle` - base title style for both renderers and nominal automatic header metrics.
+- `padding` - `EdgeInsets` shared by child labels and parent headers; defaults to `EdgeInsets.zero`. Canvas applies it to all lines; widget builders apply it themselves. Vertical padding contributes to automatic header height.
+- `spacing` - finite, nonnegative gap in logical pixels between nonempty standard title/value blocks; defaults to 0. Shared by children and parent headers across canvas/widget labels, independent of text scaling, and ignored by custom canvas `linesBuilder` output.
+- `valueStyle` - base value style for both renderers and nominal automatic header metrics.
 - `valueColorOpacity` - opacity applied to the inferred value color; defaults to `0.82`.
 - `colorResolver` - derives the base text color from resolved tile appearance.
-- `linesBuilder` - optional complete replacement for built-in title/value line construction.
+- `linesBuilder` - optional `(details, appearance, locale, styles)` callback replacing built-in lines; receives resolved `TreemapLabelStyle` and owns its returned styles.
 - `maxLines` - maximum lines per individual `TextPainter`; defaults to `1`.
 - `overflow` - Flutter text overflow mode; defaults to ellipsis.
 - `ellipsis` - non-empty ellipsis marker; defaults to `...`.
 - `alignment` - position of the complete line block inside padded bounds; defaults to top-left.
 - `textDirection` - optional explicit text direction; inherited direction is used when absent.
+
+**`TreemapLabelStyle`** holds nullable `titleStyle` and `valueStyle` overrides.
+`copyWith(titleStyle: null)` or `copyWith(valueStyle: null)` clears that override;
+omitted arguments are preserved. It supports value equality and hashing.
+
+`TreemapLabelConfig` also accepts `hoverStyle`, `selectedStyle`, `focusedStyle`,
+and a final `nodeStyleResolver(context, details, states)` returning
+`TreemapLabelStyle?`. Resolution is **base → hovered → selected → focused →
+per-node**. Null results or null individual styles preserve the preceding value.
+Each supplied `TextStyle` replaces the entire preceding style, without merging.
+All four override fields support explicit null resets in `copyWith`.
+
+`config.resolveStyles(context, details, states)` returns both styles populated,
+without contrast fallback. Canvas layers resolve a local immutable style map
+while building from presentation, then pass it to the painter. No styling objects
+enter geometry or coordinator inputs. State, callback and inherited-context
+changes repaint labels without changing the geometry cache key.
+`resolveLines(details, appearance, locale, styles: resolvedStyles)` applies
+formatters and automatic color fallback to standard lines. Explicit color or
+foreground paint in the final style wins over contrast and value opacity.
+Custom lines receive the same styles as their fourth argument, but retain control
+of their output and bypass standard spacing and color fallback.
+
+```dart
+final labelConfig = TreemapLabelConfig<String>(
+  titleStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+  valueStyle: const TextStyle(fontSize: 16),
+  hoverStyle: const TreemapLabelStyle(titleStyle: TextStyle(fontSize: 18)),
+  selectedStyle: const TreemapLabelStyle(valueStyle: TextStyle(color: Colors.red)),
+  nodeStyleResolver: (context, details, states) => details.key.sourceKey == 'food'
+      ? const TreemapLabelStyle(titleStyle: TextStyle(fontSize: 16, color: Colors.purple))
+      : null,
+);
+// Inside a widget builder:
+final styles = labelConfig.resolveStyles(context, details, states);
+// Apply styles.titleStyle / styles.valueStyle to Text widgets, along with your
+// own contrast fallback, visibility, formatting, padding and spacing.
+```
 
 Formatter precedence is localized formatter, ordinary value formatter, node `valueLabel`, then formatted weight. `linesBuilder` retains clipping, text scaling, cached measurement, alignment, and overflow while replacing the generated lines. A localized formatter requires a `Localizations` ancestor.
 
@@ -957,6 +1167,37 @@ Formatter precedence is localized formatter, ordinary value formatter, node `val
 - `style` - required complete `TextStyle`.
 
 Return an iterable of these values when text belongs on canvas but built-in title/value construction is too restrictive. Use `TreemapWidgetLabels` when the content itself must be a widget.
+
+### Migrating labels and appearance to 3.0.0
+
+Every custom `TreemapLabelLayer` must implement `resolveParentHeaderHeight(context)`
+directly. Return `null` when no parent headers are needed, or forward
+`delegate.resolveParentHeaderHeight(context)` from a wrapper. The separate sizing
+provider interface has been removed without a compatibility alias. Keep sizing
+independent of `build` and presentation output.
+
+Remove appearance inputs from `TreemapCanvasLabels`. Every custom `TreemapTileLayer`
+must implement the nullable `appearance` getter directly. Wrappers can forward
+`delegate.appearance`; layers without a shared source return `null`. Widget
+and composite tile layers declare their source with `appearance:`. Move any
+previous label `fallbackAppearance` onto the tile layer instead, including
+`TreemapNoopTileLayer(appearance: backgroundAppearance)` for invisible tiles.
+The rendering context's `resolveTileAppearances` also no longer accepts a fallback.
+
+Move normal `TreemapAppearance.titleStyle/valueStyle` into the base label config.
+Move hover/selected/focused text overrides to the corresponding `TreemapLabelStyle`
+fields, and split text overrides out of the rectangle `nodeStyleResolver` into
+`TreemapLabelConfig.nodeStyleResolver`. Rectangle resolver signatures are unchanged.
+Remove widget normal-style forwarding; both layers now use the same configuration.
+Add the fourth `styles` parameter to custom `linesBuilder` callbacks, and supply
+`styles:` when calling `resolveLines` directly. Larger overrides may be clipped
+or cause complete canvas text-block omission inside the fixed allocation.
+
+Playground links now use `labels.titleSize/valueSize` for base typography and
+`labels.hover.titleSize/valueSize`, `labels.selected.titleSize/valueSize` and
+`labels.focused.titleSize/valueSize` for state overrides. `labels.nodeStyle` selects
+the final label callback. Obsolete `tiles.normal/hover/selected/focused.titleSize`
+and `.valueSize` keys produce unknown-property notices; there are no aliases.
 
 ## Interaction, selection, and navigation
 

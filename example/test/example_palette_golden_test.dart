@@ -59,10 +59,7 @@ void main() {
         child: TreemapChart<String>(
           tree: TreemapNormalizer.normalize(sampleTree()),
           tiles: TreemapTiles(appearance: appearance),
-          labels: TreemapCanvasLabels(
-            appearance: appearance,
-            config: goldenLabelConfig<String>(),
-          ),
+          labels: TreemapCanvasLabels(config: goldenLabelConfig<String>()),
           layout: TreemapLayoutConfig(
             innerSpacing: 2,
             outerPadding: const TreemapInsets.all(8),

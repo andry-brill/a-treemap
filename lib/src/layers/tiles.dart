@@ -9,6 +9,7 @@ import '../presentation/contracts.dart';
 final class TreemapTiles<K> implements TreemapTileLayer<K> {
   const TreemapTiles({required this.appearance});
 
+  @override
   final TreemapAppearanceResolver<K> appearance;
 
   @override

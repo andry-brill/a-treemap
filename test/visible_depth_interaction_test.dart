@@ -32,6 +32,9 @@ final class _RecordingTiles implements TreemapTileLayer<String> {
   late TreemapVisualContext<String> visual;
 
   @override
+  TreemapAppearanceResolver<String>? get appearance => null;
+
+  @override
   Widget build(BuildContext context, TreemapVisualContext<String> visual) {
     this.visual = visual;
     return const SizedBox.expand();

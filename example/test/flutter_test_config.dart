@@ -7,10 +7,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Installs narrow, per-image tolerances and actionable failure diagnostics.
 ///
-/// Canvas-label goldens select Ahem and disable text antialiasing explicitly.
-/// Narrow platform-specific tolerances cover residual glyph-edge and fractional
-/// canvas-edge differences between Skia renderers. Unlisted goldens remain
-/// pixel-exact.
+/// Isolated canvas-label goldens select Ahem and disable text antialiasing.
+/// Full playground snapshots retain the configured widget/canvas text styles
+/// so they also exercise contrast, opacity and state overrides. Narrow,
+/// image-specific tolerances cover glyph-edge and fractional canvas-edge
+/// differences between Skia renderers. Unlisted goldens remain pixel-exact.
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   goldenFileComparator = _PlatformTolerantGoldenComparator(
     Uri.base.resolve('test/flutter_test_config.dart'),
@@ -39,6 +40,23 @@ final class _PlatformTolerantGoldenComparator extends LocalFileComparator {
     // platform-specific and well below the ~1.5% difference caused by labels
     // being missing entirely.
     return switch (name) {
+      // Full playground text snapshots use the same cross-platform allowance
+      // as default_labels.png. Keep Windows (the baseline platform) exact.
+      // Flutter 3.47.3 Linux glyph-edge diffs measured 0.046%-0.169%; removing
+      // the title/value gap remains a separate, much larger visual regression.
+      // The constrained-space snapshot stays exact: its text is omitted.
+      'layout-category-card.png' ||
+      'layout-parent-headers.png' ||
+      'appearance-parent-header-widgets.png' ||
+      'appearance-label-style-overrides-canvas.png' ||
+      'appearance-label-style-overrides-widgets.png' ||
+      'appearance-title-value-spacing-canvas.png' ||
+      'appearance-title-value-spacing-widgets.png' =>
+        Platform.isMacOS
+            ? .004
+            : Platform.isLinux
+            ? .003
+            : 0,
       'default_labels.png' =>
         Platform.isMacOS
             ? .004

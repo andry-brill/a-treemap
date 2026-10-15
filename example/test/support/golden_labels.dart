@@ -1,7 +1,7 @@
 import 'package:any_treemap/any_treemap.dart';
 import 'package:flutter/material.dart';
 
-/// Font bundled by the Flutter test environment on every host platform.
+/// Font bundled by the Flutter test environment.
 const goldenFontFamily = 'Ahem';
 
 Paint _goldenTextPaint(Color color) => Paint()
@@ -10,9 +10,8 @@ Paint _goldenTextPaint(Color color) => Paint()
 
 /// Creates canvas-label configuration with deterministic test rasterization.
 ///
-/// Explicitly selecting Ahem avoids host font fallback, while foreground
-/// paints with antialiasing disabled avoid Skia text-edge differences between
-/// Windows, Linux, and macOS golden runs.
+/// Explicit Ahem and non-antialiased foreground paints keep these isolated
+/// label fixtures deterministic for the pinned Windows golden environment.
 TreemapLabelConfig<K> goldenLabelConfig<K>() => TreemapLabelConfig<K>(
   titleStyle: TextStyle(
     fontFamily: goldenFontFamily,

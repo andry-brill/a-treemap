@@ -1,6 +1,6 @@
 # any_treemap
 
-[![Tests](https://github.com/andry-brill/a-treemap/actions/workflows/test.yml/badge.svg)](https://github.com/andry-brill/a-treemap/actions/workflows/test.yml)
+[![CI](https://github.com/andry-brill/a-treemap/actions/workflows/ci.yml/badge.svg)](https://github.com/andry-brill/a-treemap/actions/workflows/ci.yml)
 
 A composable Flutter treemap for immutable hierarchical data. It separates data, geometry, interaction, and presentation so an application can use the included Material-oriented layers, replace only one layer, or consume the layout engine without rendering a chart.
 
@@ -1591,3 +1591,15 @@ For a keyboard-first chart, supply `TreemapSemantics`, set `autofocus` only when
 | Custom accessibility tree | `TreemapSemanticsLayer` |
 | One custom composition around the viewport | `TreemapSurroundingLayer` |
 | Breadcrumbs, legends, or controls in a strict 3×3 grid | `TreemapSurroundingGrid` |
+
+## Validation
+
+CI runs on `windows-latest` with Flutter **3.47.3**, matching the golden baseline
+environment. It runs package and example analysis/tests, verifies layout benchmark
+budgets, and builds the example for the web. Pushes, pull requests, and manual
+runs use the same workflow.
+
+All goldens use Flutter's standard pixel-exact comparator with **zero tolerance**.
+Generate and review golden updates on Windows with the pinned Flutter version.
+Inspect the failure images before updating a baseline; when upgrading Flutter,
+update the CI pin and review any resulting visual changes together.

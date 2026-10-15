@@ -40,14 +40,12 @@ Presets stay grouped in `lib/scenarios/*.dart`. Each `ExamplePreset` supplies it
 
 Run `flutter analyze`, `flutter test`, and `flutter build web` here, plus package analysis/tests at the repository root. Tests cover all 59 presets, configuration/URL round trips, draft validation, browser route restoration, responsive/help UI, interaction/state ownership, and chart goldens. The existing example golden images moved into `test/goldens` without changing their baselines.
 
-The parent-header, title/value-spacing and label-style playground goldens retain
-their configured canvas/widget styles to cover contrast, opacity and state
-overrides. Their Windows baselines are pixel-exact on Windows and use the existing
-text allowances of 0.3% on Linux and 0.4% on macOS. These additions apply only to
-seven explicitly named images in `test/flutter_test_config.dart`; existing
-allowances are unchanged. The constrained-space image and other unlisted goldens
-stay pixel-exact. Inspect generated diff images before changing a tolerance or
-regenerating a baseline.
+CI runs only on `windows-latest` with Flutter **3.47.3**. All package and example
+goldens use Flutter's standard pixel-exact comparator with **zero tolerance**;
+there are no per-platform or per-image allowances. Generate and review baselines
+on Windows with the same Flutter version. Inspect failure images before updating
+a baseline. Full playground snapshots retain their configured canvas/widget
+styles to cover contrast, opacity and state overrides.
 
 Prepared source data is retained by the data signature. Styling and layout edits
 reuse it; dataset or single-child-policy changes prepare a new immutable tree. The `data-prepared-tree`

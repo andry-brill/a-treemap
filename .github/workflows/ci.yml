@@ -3,17 +3,16 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   validate:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.47.3'
           channel: stable
           cache: true
       - run: flutter pub get
@@ -26,7 +25,5 @@ jobs:
       - run: flutter test
         working-directory: example
       - run: dart run benchmark/layout_benchmark.dart --verify
-        if: runner.os == 'Linux'
       - run: flutter build web
         working-directory: example
-        if: runner.os == 'Linux'

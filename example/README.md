@@ -38,7 +38,7 @@ Presets stay grouped in `lib/scenarios/*.dart`. Each `ExamplePreset` supplies it
 
 ## Validation
 
-Run `flutter analyze`, `flutter test`, and `flutter build web` here, plus package analysis/tests at the repository root. Tests cover all 59 presets, configuration/URL round trips, draft validation, browser route restoration, responsive/help UI, interaction/state ownership, and chart goldens. The existing example golden images moved into `test/goldens` without changing their baselines.
+Run `flutter analyze`, `flutter test`, and `flutter build web` here, plus package analysis/tests at the repository root. Tests cover all 62 presets, configuration/URL round trips, draft validation, browser route restoration, responsive/help UI, interaction/state ownership, and chart goldens. The existing example golden images moved into `test/goldens` without changing their baselines.
 
 CI runs only on `windows-latest` with Flutter **3.47.3**. All package and example
 goldens use Flutter's standard pixel-exact comparator with **zero tolerance**;

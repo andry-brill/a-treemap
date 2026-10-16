@@ -39,6 +39,104 @@ final class TreemapBuilderTileLayer<K> implements TreemapTileLayer<K> {
       );
 }
 
+/// Centers a proportionally sized widget in each deepest visible block.
+///
+/// Width and height are independent fractions of the displayed tile bounds.
+/// Optional [aspect] fits a width-to-height ratio inside those dimensions.
+/// The allocation does not scale the child's content.
+/// Use a [FittedBox] in [builder] when the content itself should scale.
+/// Compose this layer over `TreemapTiles` to retain standard tile painting.
+final class TreemapCenteredWidgetLayer<K> implements TreemapTileLayer<K> {
+  const TreemapCenteredWidgetLayer({
+    required this.builder,
+    this.widthFactor = 1.0,
+    this.heightFactor = 1.0,
+    this.aspect,
+    this.minimumSize,
+    this.appearance,
+    this.ignorePointer = true,
+    this.clipBehavior = Clip.hardEdge,
+  }) : assert(widthFactor >= 0 && widthFactor <= 1),
+       assert(heightFactor >= 0 && heightFactor <= 1),
+       assert(aspect == null || (aspect > 0 && aspect < double.infinity));
+
+  /// Builds content only for nonempty allocations that meet [minimumSize].
+  final TreemapStatefulNodeWidgetBuilder<K> builder;
+  final double widthFactor;
+  final double heightFactor;
+
+  /// Optional width-to-height ratio fitted inside the factor-resolved box.
+  ///
+  /// Must be finite and positive. Null keeps the independent dimensions; 1
+  /// produces a square. Fitting only shrinks dimensions and precedes the
+  /// [minimumSize] check.
+  final double? aspect;
+
+  /// Minimum allocated width and height in logical pixels, or no cutoff.
+  ///
+  /// Content is skipped if either dimension falls below its minimum. Equality
+  /// passes. This affects only this layer, never tile geometry or visibility.
+  /// Dimensions must be finite and nonnegative; asserted when building so the
+  /// constructor can remain const.
+  final Size? minimumSize;
+
+  /// Optional background declaration for labels; this layer paints no fill.
+  @override
+  final TreemapAppearanceResolver<K>? appearance;
+  final bool ignorePointer;
+
+  /// Clipping applied to the allocated content box, rather than the whole tile.
+  final Clip clipBehavior;
+
+  @override
+  Widget build(BuildContext context, TreemapVisualContext<K> visual) {
+    final minimum = minimumSize;
+    assert(
+      minimum == null ||
+          (minimum.width.isFinite &&
+              minimum.width >= 0 &&
+              minimum.height.isFinite &&
+              minimum.height >= 0),
+      'minimumSize dimensions must be finite and nonnegative.',
+    );
+    return _buildNodeWidgets(
+      context,
+      visual,
+      (context, details, states) {
+        var width = details.bounds.width * widthFactor;
+        var height = details.bounds.height * heightFactor;
+        final ratio = aspect;
+        if (ratio != null && width > 0 && height > 0) {
+          if (width / height > ratio) {
+            width = height * ratio;
+          } else {
+            height = width / ratio;
+          }
+        }
+        if (width <= 0 ||
+            height <= 0 ||
+            (minimum != null &&
+                (width < minimum.width || height < minimum.height))) {
+          return const SizedBox.shrink();
+        }
+        return Center(
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: _configureNodeWidget(
+              builder(context, details, states),
+              ignorePointer: false,
+              clipBehavior: clipBehavior,
+            ),
+          ),
+        );
+      },
+      maximumNodes: null,
+      ignorePointer: ignorePointer,
+    );
+  }
+}
+
 /// Widget label implementation for fully customized labels.
 ///
 /// Each deepest visible block receives a tightly constrained [Positioned]

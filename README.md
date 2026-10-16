@@ -35,7 +35,7 @@ flutter pub get
 flutter run -d chrome
 ```
 
-The **Example** chooser loads one of 59 named presets. **Data** selects a shared dataset, and the property panel controls layout, colors, visual layers, interaction, accessibility, animation, and preview dimensions. Property info buttons explain each setting. On narrow screens, open **Properties** from the toolbar.
+The **Example** chooser loads one of 62 named presets. **Data** selects a shared dataset, and the property panel controls layout, colors, visual layers, interaction, accessibility, animation, and preview dimensions. Property info buttons explain each setting. On narrow screens, open **Properties** from the toolbar.
 
 Preset links contain only an example key, such as `?example=appearance-auto-visible`. Editing any property switches to **Custom** and puts the complete configuration, including `data`, in the URL. **Copy link** includes valid pending edits. Browser Back/Forward restores committed changes; navigation, current selection, hover, and tooltips remain temporary.
 
@@ -730,6 +730,42 @@ This is useful when a base painter, domain overlay, and debugging overlay should
 - `ignorePointer` - whether generated widgets ignore input; defaults to false.
 
 The layer supplies positioning but no clipping or styling. Choose it for images, embedded controls, platform views, or effects that genuinely need widgets.
+
+**`TreemapCenteredWidgetLayer<K>`** - centers a sized widget in each deepest visible block, including collapsed parents and aggregates.
+
+- `builder` - required callback receiving context, node details, and visual states.
+- `widthFactor` / `heightFactor` - independent fractions of the displayed tile dimensions, each defaulting to `1.0`; values must be in `[0, 1]`. The allocated box can be rectangular.
+- `aspect` - optional finite, positive width-to-height ratio, defaulting to null. After applying both factors, fit the largest box with this ratio inside the resolved dimensions. `1` makes a square, `2` makes a box twice as wide as tall. Fitting only shrinks dimensions.
+- `minimumSize` - optional `Size` in logical pixels, defaulting to null. If either computed dimension is below its minimum, content is skipped without calling the builder. Equality passes; empty allocations are always skipped. Minimum dimensions must be finite and nonnegative (asserted when building to preserve the const constructor).
+- `ignorePointer` - defaults to true so chart gestures remain available.
+- `clipBehavior` - clips to the allocated content box; defaults to `Clip.hardEdge`.
+- `appearance` - optional background declaration for labels; the layer paints no background.
+
+The layer starts with width `tile.width * widthFactor` and height `tile.height * heightFactor`, applies `aspect` when supplied, then checks `minimumSize` against the final dimensions and wraps content in a centered `SizedBox`. For a 200 × 100 tile with both factors 0.5, `aspect: 1` produces a 50 × 50 box. It allocates space without automatically scaling the child's internal content. Use `FittedBox` inside the builder to scale an icon or image. The cutoff affects only the widget, leaving tile geometry, aggregation and hit testing unchanged. Text labels remain independent and can overlap the content.
+
+```dart
+TreemapChart<String>(
+  tree: tree, // A prepared TreemapNormalizedTree<String>.
+  tiles: TreemapCompositeTileLayer<String>(
+    [
+      TreemapTiles<String>(appearance: appearance),
+      TreemapCenteredWidgetLayer<String>(
+        widthFactor: 0.5,
+        heightFactor: 0.5,
+        aspect: 1,
+        minimumSize: const Size(24, 16),
+        builder: (context, details, states) => const FittedBox(
+          child: Icon(Icons.rectangle_outlined),
+        ),
+      ),
+    ],
+    appearance: appearance, // Explicit shared source for canvas labels.
+  ),
+  labels: TreemapCanvasLabels<String>(
+    config: const TreemapLabelConfig(alignment: Alignment.topLeft),
+  ),
+)
+```
 
 **`TreemapCanvasLabels<K>`** - high-throughput text label layer using cached `TextPainter` layouts.
 

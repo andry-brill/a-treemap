@@ -404,7 +404,7 @@ final class PlaygroundComposition {
 
   TreemapTileLayer<String> get tiles {
     final canvas = TreemapTiles<String>(appearance: appearance);
-    return switch (config.text('tiles.renderer')) {
+    final base = switch (config.text('tiles.renderer')) {
       'noop' => TreemapNoopTileLayer(appearance: appearance),
       'widgets' => ConfiguredWidgetTiles(this),
       'composite' => TreemapCompositeTileLayer([
@@ -413,6 +413,37 @@ final class PlaygroundComposition {
       ], appearance: appearance),
       _ => canvas,
     };
+    if (!config.flag('tiles.centered.enabled')) return base;
+    return TreemapCompositeTileLayer([
+      base,
+      TreemapCenteredWidgetLayer<String>(
+        widthFactor: config.number('tiles.centered.widthFactor'),
+        heightFactor: config.number('tiles.centered.heightFactor'),
+        aspect: config.optionalNumber('tiles.centered.aspect'),
+        minimumSize: config.flag('tiles.centered.minimumEnabled')
+            ? Size(
+                config.number('tiles.centered.minimumWidth'),
+                config.number('tiles.centered.minimumHeight'),
+              )
+            : null,
+        builder: (context, details, states) => Container(
+          key: ValueKey('centered-${details.key}'),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: .8),
+              width: states.contains(TreemapVisualState.selected) ? 3 : 1,
+            ),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFFFF176), Color(0xFFFF9F43), Color(0xFFFF4081)],
+              stops: [0, .45, 1],
+            ),
+          ),
+        ),
+      ),
+    ], appearance: appearance);
   }
 
   TreemapLabelLayer<String>? get labels => switch (config.text(

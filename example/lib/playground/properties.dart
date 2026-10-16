@@ -506,6 +506,49 @@ List<PlaygroundProperty> propertyDefinitions() {
     'canvas',
     ['canvas', 'widgets', 'composite', 'noop'],
   );
+  b(
+    'tiles.centered.enabled',
+    'Centered widgets',
+    'Tile Appearance',
+    'Overlay a rounded container with a bright yellow, orange and pink gradient on each deepest visible block.',
+    false,
+  );
+  for (final axis in ['width', 'height']) {
+    n(
+      'tiles.centered.${axis}Factor',
+      'Centered $axis factor',
+      'Tile Appearance',
+      'Fraction of the displayed tile $axis allocated to the centered widget. Width and height are independent.',
+      1,
+      max: 1,
+    );
+  }
+  n(
+    'tiles.centered.aspect',
+    'Centered aspect ratio',
+    'Tile Appearance',
+    'Optional width-to-height ratio fitted inside the box after both factors. 1 makes a square; 2 is twice as wide as tall. The cutoff checks the fitted size.',
+    null,
+    min: double.minPositive,
+    nullLabel: 'None',
+  );
+  b(
+    'tiles.centered.minimumEnabled',
+    'Centered size cutoff',
+    'Tile Appearance',
+    'Skip centered content when either allocated dimension is below its minimum. Tiles remain visible. Off means no cutoff.',
+    false,
+  );
+  for (final axis in ['Width', 'Height']) {
+    n(
+      'tiles.centered.minimum$axis',
+      'Centered minimum ${axis.toLowerCase()}',
+      'Tile Appearance',
+      'Minimum allocated ${axis.toLowerCase()} in logical pixels. Equality passes; the cutoff does not change tile layout.',
+      0,
+      max: 512,
+    );
+  }
   c(
     'tiles.nodeStyle',
     'Node style resolver',
@@ -1602,6 +1645,18 @@ String? propertyDisabledReason(String key, PlaygroundConfig config) {
   if ((key == 'tiles.maximumNodes' || key == 'tiles.ignorePointer') &&
       !['widgets', 'composite'].contains(config.text('tiles.renderer'))) {
     return 'Used by widget and composite tile renderers.';
+  }
+  if (key.startsWith('tiles.centered.') &&
+      key != 'tiles.centered.enabled' &&
+      !config.flag('tiles.centered.enabled')) {
+    return 'Enable centered widgets to use this property.';
+  }
+  if ([
+        'tiles.centered.minimumWidth',
+        'tiles.centered.minimumHeight',
+      ].contains(key) &&
+      !config.flag('tiles.centered.minimumEnabled')) {
+    return 'Enable the centered size cutoff to use this property.';
   }
   if (key.startsWith('labels.') &&
       key != 'labels.renderer' &&

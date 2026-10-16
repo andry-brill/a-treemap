@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.0.1
+
+- Added `TreemapCenteredWidgetLayer` for centered widget content over deepest
+  visible blocks, including collapsed parents and aggregates. Independent width
+  and height factors default to 1.0; optional `aspect` fits a width-to-height
+  ratio inside those resolved dimensions before an optional `Size` cutoff skips
+  undersized content without changing tile geometry or invoking its builder.
+- Content receives a tightly sized box with clipping and pointer ignoring enabled
+  by default. Compose it with standard tiles and canvas labels; use `FittedBox`
+  inside the builder when the content itself should scale.
+- Added centered-widget controls and full-size/aspect/cutoff scenarios to the
+  runnable feature catalog (62 presets).
+
 ## 3.0.0
 
 - **Breaking:** moved `resolveParentHeaderHeight(context)` directly onto

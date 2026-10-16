@@ -35,7 +35,7 @@ flutter pub get
 flutter run -d chrome
 ```
 
-The **Example** chooser loads one of 62 named presets. **Data** selects a shared dataset, and the property panel controls layout, colors, visual layers, interaction, accessibility, animation, and preview dimensions. Property info buttons explain each setting. On narrow screens, open **Properties** from the toolbar.
+The **Example** chooser loads one of 63 named presets. **Data** selects a shared dataset, and the property panel controls layout, colors, visual layers, interaction, accessibility, animation, and preview dimensions. Property info buttons explain each setting. On narrow screens, open **Properties** from the toolbar.
 
 Preset links contain only an example key, such as `?example=appearance-auto-visible`. Editing any property switches to **Custom** and puts the complete configuration, including `data`, in the URL. **Copy link** includes valid pending edits. Browser Back/Forward restores committed changes; navigation, current selection, hover, and tooltips remain temporary.
 
@@ -766,6 +766,41 @@ TreemapChart<String>(
   ),
 )
 ```
+
+**`TreemapCenteredTextLayer<K>.fixed`** - centered single-line canvas text scaled from a shared template.
+
+- `template` - required complete, nonempty single-line sizing reference, such as `W`, `WW` or `000`. The string supplies its own length; there is no separate length setting.
+- `textBuilder` - required callback receiving context, displayed node details and visual states. Return single-line text, or an empty string to omit it. There is no automatic padding or text-length validation; choose a template that accommodates the expected content and fonts.
+- `style` - shared typography, defaulting to white text. `fontSize` is ignored: the renderer normalizes it once to an internal reference size. Other style dimensions, such as letter spacing, scale with the text.
+- `widthFactor` / `heightFactor`, `aspect`, `minimumSize` - the same allocation rules as `TreemapCenteredWidgetLayer`. Factors default to 1.0. The optional cutoff checks both final dimensions, accepts equality and skips the callback for undersized content. Empty boxes are skipped; tile geometry stays unchanged.
+- `appearance` - optional declared background source; text paints no background.
+
+The full template is measured once per typography configuration. Every text uses `TextAlign.center` within that reference width and the same enforced line height. Rendering translates the canvas to the allocation's center and applies `min(allocatedWidth / templateWidth, allocatedHeight / templateHeight)` uniformly. Equal allocations use the same scale even for narrow and wide letters. Text exceeding the template budget is clipped/truncated to one line without ellipsis; there is no wrapping or per-string fitting. Font fallback can exceed the template's visual bounds, so use a representative template.
+
+The reference box and vertical paint offset are cached. Distinct prepared text painters are reused during resizing, transitions and layer recreation; new strings need their initial layout. Style, template, locale, direction and loaded-font changes invalidate measurements. Painters are retained for currently displayed strings and disposed when unused or unmounted. This avoids per-frame font-size searches or style copies. Displayed size follows the allocation independently of `TextStyle.fontSize` and inherited text scaling.
+
+```dart
+TreemapCompositeTileLayer<String>(
+  [
+    TreemapTiles<String>(appearance: appearance),
+    TreemapCenteredTextLayer<String>.fixed(
+      template: 'WW',
+      textBuilder: (context, details, states) =>
+          details.isAggregate ? '++' : 'AB',
+      style: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+      ),
+      widthFactor: 0.65,
+      heightFactor: 0.65,
+      minimumSize: const Size(24, 16),
+    ),
+  ],
+  appearance: appearance,
+)
+```
+
+The layer always ignores pointers, targets deepest visible blocks (including collapsed parents and aggregates), and can coexist with independent top-left canvas labels. Try `?example=appearance-centered-text-fixed`: edit the template from `WW` to `W` or `WWW`, select a tile and resize the preview. Generated example text follows the template's grapheme length automatically.
 
 **`TreemapCanvasLabels<K>`** - high-throughput text label layer using cached `TextPainter` layouts.
 

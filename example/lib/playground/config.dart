@@ -122,6 +122,13 @@ final class PlaygroundConfig {
       PlaygroundConfig.fromOverrides({..._values, ...changes});
 
   void validate() {
+    if (text(
+      'tiles.centeredText.template',
+    ).contains(RegExp(r'[\r\n\u0085\u2028\u2029]'))) {
+      throw const FormatException(
+        'Centered text template must be single-line.',
+      );
+    }
     final minimum = optionalNumber('color.minimum');
     final maximum = optionalNumber('color.maximum');
     if (minimum != null && maximum != null && maximum <= minimum) {

@@ -549,6 +549,57 @@ List<PlaygroundProperty> propertyDefinitions() {
       max: 512,
     );
   }
+  b(
+    'tiles.centeredText.enabled',
+    'Centered fixed text',
+    'Tile Appearance',
+    'Paint single-line text on canvas using a shared template measurement and uniform scaling. No font size is needed.',
+    false,
+  );
+  s(
+    'tiles.centeredText.template',
+    'Centered text template',
+    'Tile Appearance',
+    'Complete sizing reference, such as W, WW or WWW. Its length supplies the example text length automatically. More letters reserve a wider box and reduce the scale.',
+    'W',
+    nonempty: true,
+  );
+  for (final axis in ['width', 'height']) {
+    n(
+      'tiles.centeredText.${axis}Factor',
+      'Centered text $axis factor',
+      'Tile Appearance',
+      'Fraction of displayed tile $axis available to the fixed-template canvas text.',
+      .65,
+      max: 1,
+    );
+  }
+  n(
+    'tiles.centeredText.aspect',
+    'Centered text aspect ratio',
+    'Tile Appearance',
+    'Optional width-to-height ratio fitted after both factors and before the size cutoff.',
+    null,
+    min: double.minPositive,
+    nullLabel: 'None',
+  );
+  b(
+    'tiles.centeredText.minimumEnabled',
+    'Centered text size cutoff',
+    'Tile Appearance',
+    'Skip centered text if either final allocated dimension is below its minimum. Small tiles remain visible.',
+    false,
+  );
+  for (final axis in ['Width', 'Height']) {
+    n(
+      'tiles.centeredText.minimum$axis',
+      'Centered text minimum ${axis.toLowerCase()}',
+      'Tile Appearance',
+      'Minimum final allocated ${axis.toLowerCase()} in logical pixels. Equality passes.',
+      0,
+      max: 512,
+    );
+  }
   c(
     'tiles.nodeStyle',
     'Node style resolver',
@@ -1657,6 +1708,18 @@ String? propertyDisabledReason(String key, PlaygroundConfig config) {
       ].contains(key) &&
       !config.flag('tiles.centered.minimumEnabled')) {
     return 'Enable the centered size cutoff to use this property.';
+  }
+  if (key.startsWith('tiles.centeredText.') &&
+      key != 'tiles.centeredText.enabled' &&
+      !config.flag('tiles.centeredText.enabled')) {
+    return 'Enable centered fixed text to use this property.';
+  }
+  if ([
+        'tiles.centeredText.minimumWidth',
+        'tiles.centeredText.minimumHeight',
+      ].contains(key) &&
+      !config.flag('tiles.centeredText.minimumEnabled')) {
+    return 'Enable the centered text size cutoff to use this property.';
   }
   if (key.startsWith('labels.') &&
       key != 'labels.renderer' &&

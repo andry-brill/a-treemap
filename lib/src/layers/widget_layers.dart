@@ -6,6 +6,7 @@ import '../appearance/resolver.dart';
 import '../painters/parent_label_metrics.dart';
 import '../presentation/context.dart';
 import '../presentation/contracts.dart';
+import 'centered_content.dart';
 import 'label_regions.dart';
 
 const _neutralTreemapLabelConfig = TreemapLabelConfig<Never>();
@@ -103,26 +104,18 @@ final class TreemapCenteredWidgetLayer<K> implements TreemapTileLayer<K> {
       context,
       visual,
       (context, details, states) {
-        var width = details.bounds.width * widthFactor;
-        var height = details.bounds.height * heightFactor;
-        final ratio = aspect;
-        if (ratio != null && width > 0 && height > 0) {
-          if (width / height > ratio) {
-            width = height * ratio;
-          } else {
-            height = width / ratio;
-          }
-        }
-        if (width <= 0 ||
-            height <= 0 ||
-            (minimum != null &&
-                (width < minimum.width || height < minimum.height))) {
-          return const SizedBox.shrink();
-        }
+        final size = resolveCenteredContentSize(
+          Size(details.bounds.width, details.bounds.height),
+          widthFactor: widthFactor,
+          heightFactor: heightFactor,
+          aspect: aspect,
+          minimumSize: minimum,
+        );
+        if (size == null) return const SizedBox.shrink();
         return Center(
           child: SizedBox(
-            width: width,
-            height: height,
+            width: size.width,
+            height: size.height,
             child: _configureNodeWidget(
               builder(context, details, states),
               ignorePointer: false,

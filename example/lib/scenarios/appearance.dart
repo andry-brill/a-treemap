@@ -466,6 +466,23 @@ final appearanceScenarios = <ExamplePreset>[
     },
   ),
   ExamplePreset(
+    id: 'appearance-centered-text-fixed',
+    title: 'Centered text: fixed template',
+    category: 'Appearance',
+    description:
+        'Template WW sizes cached single-line canvas text at factors 0.65. Edit it to W or WWW: example text follows its length. Select a tile to show Ws, and resize to see scaling without font sizes. Labels stay top left.',
+    dataKey: 'direct-colors',
+    overrides: {
+      'tiles.centeredText.enabled': true,
+      'tiles.centeredText.template': 'WW',
+      'labels.alignment': 'topLeft',
+      'labels.padding.left': 6,
+      'labels.padding.top': 6,
+      'interaction.zoomOnTap': false,
+      'interaction.selectOnTap': true,
+    },
+  ),
+  ExamplePreset(
     id: "appearance-builders-virtualized",
     title: "Tile and label builders",
     category: "Appearance",

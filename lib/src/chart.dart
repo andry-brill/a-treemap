@@ -166,6 +166,9 @@ final class _TreemapViewport<K> extends StatefulWidget {
 
 final class _TreemapViewportState<K> extends State<_TreemapViewport<K>> {
   final FocusNode _focusNode = FocusNode(debugLabel: 'TreemapChart');
+  // Restart the animation controller without discarding stateful visual layers
+  // and their rendering resources when geometry changes.
+  final GlobalKey _frameKey = GlobalKey(debugLabel: 'Treemap frame');
 
   @override
   void initState() {
@@ -217,8 +220,10 @@ final class _TreemapViewportState<K> extends State<_TreemapViewport<K>> {
             ? Duration.zero
             : widget.chart.transition?.duration ?? Duration.zero,
         curve: widget.chart.transition?.curve ?? Curves.linear,
-        builder: (context, progress, _) =>
-            _buildFrame(context, owner.displayFrame(progress)),
+        builder: (context, progress, _) => KeyedSubtree(
+          key: _frameKey,
+          child: _buildFrame(context, owner.displayFrame(progress)),
+        ),
       );
     },
   );

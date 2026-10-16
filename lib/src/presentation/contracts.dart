@@ -14,6 +14,14 @@ typedef TreemapStatefulNodeWidgetBuilder<K> =
       Set<TreemapVisualState> states,
     );
 
+/// Builds single-line text from displayed node details and visual states.
+typedef TreemapStatefulNodeTextBuilder<K> =
+    String Function(
+      BuildContext context,
+      TreemapNodeDetails<K> details,
+      Set<TreemapVisualState> states,
+    );
+
 /// Required visual layer that owns all tile rendering.
 abstract interface class TreemapTileLayer<K> {
   /// Background source shared with labels and other rendering layers.

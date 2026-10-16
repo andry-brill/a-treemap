@@ -15,6 +15,7 @@ export 'src/geometry.dart';
 export 'src/interaction.dart';
 export 'src/layers/breadcrumbs.dart';
 export 'src/layers/canvas_labels.dart';
+export 'src/layers/centered_text.dart';
 export 'src/layers/legend.dart';
 export 'src/layers/semantics.dart';
 export 'src/layers/surrounding_grid.dart';

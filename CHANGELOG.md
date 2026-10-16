@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.0.2
+
+- Added `TreemapCenteredTextLayer.fixed` for single-line canvas text fitted to a
+  shared template, with independent factors, optional aspect ratio and size
+  cutoff. The template itself defines the sizing budget; no length or font size
+  is required. Text is centered with a fixed line height and uniform canvas scale.
+- Cached template metrics and distinct text painters survive geometry updates,
+  transitions and layer recreation. Unused resources are disposed; typography,
+  locale, direction and font changes invalidate measurements.
+- Added an editable-template playground scenario and controls (63 presets),
+  including generated text that follows the template's grapheme length.
+
 ## 3.0.1
 
 - Added `TreemapCenteredWidgetLayer` for centered widget content over deepest

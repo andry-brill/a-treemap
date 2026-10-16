@@ -413,36 +413,70 @@ final class PlaygroundComposition {
       ], appearance: appearance),
       _ => canvas,
     };
-    if (!config.flag('tiles.centered.enabled')) return base;
+    if (!config.flag('tiles.centered.enabled') &&
+        !config.flag('tiles.centeredText.enabled')) {
+      return base;
+    }
+    final textTemplate = config.text('tiles.centeredText.template');
+    // Count user-perceived characters once, including composed text and emoji.
+    final textLength = textTemplate.characters.length;
     return TreemapCompositeTileLayer([
       base,
-      TreemapCenteredWidgetLayer<String>(
-        widthFactor: config.number('tiles.centered.widthFactor'),
-        heightFactor: config.number('tiles.centered.heightFactor'),
-        aspect: config.optionalNumber('tiles.centered.aspect'),
-        minimumSize: config.flag('tiles.centered.minimumEnabled')
-            ? Size(
-                config.number('tiles.centered.minimumWidth'),
-                config.number('tiles.centered.minimumHeight'),
-              )
-            : null,
-        builder: (context, details, states) => Container(
-          key: ValueKey('centered-${details.key}'),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: .8),
-              width: states.contains(TreemapVisualState.selected) ? 3 : 1,
-            ),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFFFFF176), Color(0xFFFF9F43), Color(0xFFFF4081)],
-              stops: [0, .45, 1],
+      if (config.flag('tiles.centered.enabled'))
+        TreemapCenteredWidgetLayer<String>(
+          widthFactor: config.number('tiles.centered.widthFactor'),
+          heightFactor: config.number('tiles.centered.heightFactor'),
+          aspect: config.optionalNumber('tiles.centered.aspect'),
+          minimumSize: config.flag('tiles.centered.minimumEnabled')
+              ? Size(
+                  config.number('tiles.centered.minimumWidth'),
+                  config.number('tiles.centered.minimumHeight'),
+                )
+              : null,
+          builder: (context, details, states) => Container(
+            key: ValueKey('centered-${details.key}'),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: .8),
+                width: states.contains(TreemapVisualState.selected) ? 3 : 1,
+              ),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFFFF176),
+                  Color(0xFFFF9F43),
+                  Color(0xFFFF4081),
+                ],
+                stops: [0, .45, 1],
+              ),
             ),
           ),
         ),
-      ),
+      if (config.flag('tiles.centeredText.enabled'))
+        TreemapCenteredTextLayer<String>.fixed(
+          template: textTemplate,
+          widthFactor: config.number('tiles.centeredText.widthFactor'),
+          heightFactor: config.number('tiles.centeredText.heightFactor'),
+          aspect: config.optionalNumber('tiles.centeredText.aspect'),
+          minimumSize: config.flag('tiles.centeredText.minimumEnabled')
+              ? Size(
+                  config.number('tiles.centeredText.minimumWidth'),
+                  config.number('tiles.centeredText.minimumHeight'),
+                )
+              : null,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+          textBuilder: (context, details, states) {
+            final letter = states.contains(TreemapVisualState.selected)
+                ? 'W'
+                : details.label?.characters.firstOrNull ?? 'I';
+            return List.filled(textLength, letter.toUpperCase()).join();
+          },
+        ),
     ], appearance: appearance);
   }
 

@@ -368,31 +368,29 @@ final class PlaygroundComposition {
     colorResolver: _labelColor,
     linesBuilder: config.text('labels.linesBuilder') == 'default'
         ? null
-        : (details, appearance, locale, styles) => [
-            if (config.flag('labels.showTitle'))
-              TreemapCanvasLabelLine(
-                text: title(details),
-                style: _withLabelColor(
-                  styles.titleStyle!,
-                  _labelColor(appearance),
-                ),
-              ),
-            if (config.flag('labels.showValue'))
-              TreemapCanvasLabelLine(
-                text: value(details),
-                style: _withLabelColor(
-                  styles.valueStyle!,
-                  _labelColor(appearance),
-                ),
-              ),
-            TreemapCanvasLabelLine(
+        : (details, appearance, locale, styles) {
+            final color = _labelColor(appearance);
+            final valueStyle = _withLabelColor(styles.valueStyle!, color);
+            final twoLabels =
+                config.text('labels.linesBuilder') == 'twoLabelsValue';
+            final depthLine = TreemapCanvasLabelLine(
               text: 'Depth ${details.depth}',
-              style: _withLabelColor(
-                styles.valueStyle!,
-                _labelColor(appearance),
-              ),
-            ),
-          ],
+              style: twoLabels
+                  ? valueStyle.copyWith(fontStyle: FontStyle.italic)
+                  : valueStyle,
+            );
+            return [
+              if (config.flag('labels.showTitle'))
+                TreemapCanvasLabelLine(
+                  text: title(details),
+                  style: _withLabelColor(styles.titleStyle!, color),
+                ),
+              if (twoLabels) depthLine,
+              if (config.flag('labels.showValue'))
+                TreemapCanvasLabelLine(text: value(details), style: valueStyle),
+              if (!twoLabels) depthLine,
+            ];
+          },
     maxLines: config.integer('labels.maxLines'),
     overflow: named(TextOverflow.values, config.text('labels.overflow')),
     ellipsis: config.text('labels.ellipsis'),
@@ -424,6 +422,10 @@ final class PlaygroundComposition {
       base,
       if (config.flag('tiles.centered.enabled'))
         TreemapCenteredWidgetLayer<String>(
+          region: named(
+            TreemapContentRegion.values,
+            config.text('tiles.centered.region'),
+          ),
           widthFactor: config.number('tiles.centered.widthFactor'),
           heightFactor: config.number('tiles.centered.heightFactor'),
           aspect: config.optionalNumber('tiles.centered.aspect'),
@@ -456,6 +458,10 @@ final class PlaygroundComposition {
         ),
       if (config.flag('tiles.centeredText.enabled'))
         TreemapCenteredTextLayer<String>.fixed(
+          region: named(
+            TreemapContentRegion.values,
+            config.text('tiles.centeredText.region'),
+          ),
           template: textTemplate,
           widthFactor: config.number('tiles.centeredText.widthFactor'),
           heightFactor: config.number('tiles.centeredText.heightFactor'),
@@ -480,13 +486,35 @@ final class PlaygroundComposition {
     ], appearance: appearance);
   }
 
-  TreemapLabelLayer<String>? get labels => switch (config.text(
-    'labels.renderer',
-  )) {
-    'none' => null,
-    'widgets' => ConfiguredWidgetLabels(this),
-    _ => TreemapCanvasLabels(config: labelConfig, parentLabels: parentLabels),
-  };
+  TreemapLabelLayer<String>? get labels =>
+      switch (config.text('labels.renderer')) {
+        'none' => null,
+        'widgets' => ConfiguredWidgetLabels(this),
+        _ => TreemapCanvasLabels(
+          config: labelConfig,
+          parentLabels: parentLabels,
+          reservation: labelReservation(),
+        ),
+      };
+
+  TreemapLabelReservation labelReservation({bool widgets = false}) {
+    final height = config.optionalNumber('labels.reservedHeight');
+    if (widgets && height == null) return const TreemapLabelReservation.none();
+    final mode = config.text('labels.reservation');
+    return switch (mode) {
+      'none' => const TreemapLabelReservation.none(),
+      'top' => TreemapLabelReservation.top(height: height),
+      'bottom' => TreemapLabelReservation.bottom(height: height),
+      _ when height == null => const TreemapLabelReservation.automatic(),
+      _ when labelConfig.alignment.y == -1 => TreemapLabelReservation.top(
+        height: height,
+      ),
+      _ when labelConfig.alignment.y == 1 => TreemapLabelReservation.bottom(
+        height: height,
+      ),
+      _ => const TreemapLabelReservation.none(),
+    };
+  }
 
   TreemapParentLabelConfig? get parentLabels =>
       config.flag('labels.parents.enabled')
@@ -978,7 +1006,10 @@ final class ConfiguredWidgetTiles implements TreemapTileLayer<String> {
   }
 }
 
-final class ConfiguredWidgetLabels implements TreemapLabelLayer<String> {
+final class ConfiguredWidgetLabels
+    implements
+        TreemapLabelLayer<String>,
+        TreemapLabelPlacementProvider<String> {
   const ConfiguredWidgetLabels(this.composition);
   final PlaygroundComposition composition;
 
@@ -992,6 +1023,7 @@ final class ConfiguredWidgetLabels implements TreemapLabelLayer<String> {
       ignorePointer: config.flag('labels.ignorePointer'),
       clipBehavior: named(Clip.values, config.text('labels.clip')),
       parentLabels: composition.parentLabels,
+      reservation: composition.labelReservation(widgets: true),
       builder: builder,
       parentBuilder: config.text('labels.parents.widgetBuilder') == 'badge'
           ? (context, details, states) => DecoratedBox(
@@ -1018,7 +1050,14 @@ final class ConfiguredWidgetLabels implements TreemapLabelLayer<String> {
     (context, details, states) => const SizedBox.shrink(),
   ).resolveParentHeaderHeight(context);
   @override
-  Widget build(BuildContext context, TreemapVisualContext<String> visual) {
+  Widget build(BuildContext context, TreemapVisualContext<String> visual) =>
+      preparePlacement(context, visual).child;
+
+  @override
+  TreemapLabelPlacement<String> preparePlacement(
+    BuildContext context,
+    TreemapVisualContext<String> visual,
+  ) {
     final config = composition.config;
     final labelConfig = composition.labelConfig;
     final parentLabels = composition.parentLabels;
@@ -1103,7 +1142,7 @@ final class ConfiguredWidgetLabels implements TreemapLabelLayer<String> {
           ),
         ),
       );
-    }).build(context, visual);
+    }).preparePlacement(context, visual);
   }
 }
 

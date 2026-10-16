@@ -1,11 +1,15 @@
 import 'package:flutter/widgets.dart';
 
 import '../appearance/label.dart';
+import '../appearance/label_reservation.dart';
 import '../appearance/parent_label.dart';
 import '../appearance/resolver.dart';
+import '../geometry.dart';
+import '../model.dart';
 import '../painters/parent_label_metrics.dart';
 import '../presentation/context.dart';
 import '../presentation/contracts.dart';
+import '../presentation/label_placement.dart';
 import 'centered_content.dart';
 import 'label_regions.dart';
 
@@ -42,7 +46,7 @@ final class TreemapBuilderTileLayer<K> implements TreemapTileLayer<K> {
 
 /// Centers a proportionally sized widget in each deepest visible block.
 ///
-/// Width and height are independent fractions of the displayed tile bounds.
+/// Width and height are independent fractions of the available content bounds.
 /// Optional [aspect] fits a width-to-height ratio inside those dimensions.
 /// The allocation does not scale the child's content.
 /// Use a [FittedBox] in [builder] when the content itself should scale.
@@ -54,6 +58,7 @@ final class TreemapCenteredWidgetLayer<K> implements TreemapTileLayer<K> {
     this.heightFactor = 1.0,
     this.aspect,
     this.minimumSize,
+    this.region = TreemapContentRegion.available,
     this.appearance,
     this.ignorePointer = true,
     this.clipBehavior = Clip.hardEdge,
@@ -65,6 +70,9 @@ final class TreemapCenteredWidgetLayer<K> implements TreemapTileLayer<K> {
   final TreemapStatefulNodeWidgetBuilder<K> builder;
   final double widthFactor;
   final double heightFactor;
+
+  /// Available space by default; [TreemapContentRegion.tile] ignores labels.
+  final TreemapContentRegion region;
 
   /// Optional width-to-height ratio fitted inside the factor-resolved box.
   ///
@@ -100,12 +108,16 @@ final class TreemapCenteredWidgetLayer<K> implements TreemapTileLayer<K> {
               minimum.height >= 0),
       'minimumSize dimensions must be finite and nonnegative.',
     );
+    final bounds = {
+      for (final node in visual.presentation.visibleLeafNodes)
+        node.key: visual.contentBoundsFor(node.key, region: region),
+    };
     return _buildNodeWidgets(
       context,
       visual,
       (context, details, states) {
         final size = resolveCenteredContentSize(
-          Size(details.bounds.width, details.bounds.height),
+          bounds[details.key]!.size,
           widthFactor: widthFactor,
           heightFactor: heightFactor,
           aspect: aspect,
@@ -126,6 +138,7 @@ final class TreemapCenteredWidgetLayer<K> implements TreemapTileLayer<K> {
       },
       maximumNodes: null,
       ignorePointer: ignorePointer,
+      bounds: bounds,
     );
   }
 }
@@ -139,7 +152,8 @@ final class TreemapCenteredWidgetLayer<K> implements TreemapTileLayer<K> {
 /// label needs reserved geometry, together with an aggregate or hide minimum
 /// node policy.
 /// Opt-in [parentLabels] also build widgets in reserved parent header regions.
-final class TreemapWidgetLabels<K> implements TreemapLabelLayer<K> {
+final class TreemapWidgetLabels<K>
+    implements TreemapLabelLayer<K>, TreemapLabelPlacementProvider<K> {
   const TreemapWidgetLabels({
     required this.builder,
     TreemapLabelConfig<K> config = _neutralTreemapLabelConfig,
@@ -148,6 +162,7 @@ final class TreemapWidgetLabels<K> implements TreemapLabelLayer<K> {
     this.clipBehavior = Clip.hardEdge,
     this.parentLabels,
     this.parentBuilder,
+    this.reservation = const TreemapLabelReservation.none(),
   }) : _config = config,
        assert(maximumNodes == null || maximumNodes > 0);
 
@@ -168,6 +183,10 @@ final class TreemapWidgetLabels<K> implements TreemapLabelLayer<K> {
   final bool ignorePointer;
   final Clip clipBehavior;
   final TreemapParentLabelConfig? parentLabels;
+
+  /// Explicit top/bottom strip containing the widget, including its padding.
+  /// Supply a height for arbitrary widgets. The default reserves no space.
+  final TreemapLabelReservation reservation;
 
   /// Replaces [builder] for header regions only. The widget owns its content,
   /// visibility flags and padding; [TreemapNodeDetails.headerBounds] describes
@@ -190,7 +209,46 @@ final class TreemapWidgetLabels<K> implements TreemapLabelLayer<K> {
 
   @override
   Widget build(BuildContext context, TreemapVisualContext<K> visual) =>
-      _buildNodeWidgets(
+      preparePlacement(context, visual).child;
+
+  @override
+  TreemapLabelPlacement<K> preparePlacement(
+    BuildContext context,
+    TreemapVisualContext<K> visual,
+  ) {
+    assert(
+      reservation.height != null ||
+          !hasLabelReservation(reservation, config.alignment),
+      'Widget label reservations require an explicit height.',
+    );
+    final bounds = <TreemapKey<K>, Rect>{};
+    final content = <TreemapKey<K>, Rect>{};
+    for (final node in _widgetNodes(
+      visual,
+      maximumNodes: maximumNodes,
+      labels: true,
+      includeHeaders: parentLabels?.enabled ?? false,
+    )) {
+      if (node.headerBounds != null) continue;
+      final tile = visual.contentBoundsFor(node.key);
+      final reserved = labelReservationBounds(
+        tile,
+        reservation,
+        config.alignment,
+        0,
+      );
+      if (reserved != null) {
+        bounds[node.key] = reserved;
+        content[node.key] = remainingLabelBounds(
+          tile,
+          reserved,
+          reservationAlignment(reservation, config.alignment),
+        );
+      }
+    }
+    return TreemapLabelPlacement(
+      contentBounds: content,
+      child: _buildNodeWidgets(
         context,
         visual,
         builder,
@@ -200,7 +258,10 @@ final class TreemapWidgetLabels<K> implements TreemapLabelLayer<K> {
         labels: true,
         includeHeaders: parentLabels?.enabled ?? false,
         parentBuilder: parentBuilder,
-      );
+        bounds: bounds,
+      ),
+    );
+  }
 }
 
 Widget _buildNodeWidgets<K>(
@@ -213,6 +274,52 @@ Widget _buildNodeWidgets<K>(
   bool labels = false,
   bool includeHeaders = false,
   TreemapStatefulNodeWidgetBuilder<K>? parentBuilder,
+  Map<TreemapKey<K>, Rect>? bounds,
+}) {
+  Rect nodeBounds(TreemapGeometryNode<K> node) {
+    final base = labels ? labelBounds(node) : node.bounds;
+    return bounds?[node.key] ??
+        Rect.fromLTWH(base.left, base.top, base.width, base.height);
+  }
+
+  final nodes = _widgetNodes(
+    visual,
+    maximumNodes: maximumNodes,
+    labels: labels,
+    includeHeaders: includeHeaders,
+  );
+  return Stack(
+    clipBehavior: Clip.none,
+    children: [
+      for (final node in nodes)
+        if (!nodeBounds(node).isEmpty)
+          Positioned(
+            key: ValueKey(node.key),
+            left: nodeBounds(node).left,
+            top: nodeBounds(node).top,
+            width: nodeBounds(node).width,
+            height: nodeBounds(node).height,
+            child: _configureNodeWidget(
+              (labels && node.headerBounds != null
+                  ? parentBuilder ?? builder
+                  : builder)(
+                context,
+                visual.presentation.details[node.key]!,
+                visual.presentation.statesFor(node.key),
+              ),
+              ignorePointer: ignorePointer,
+              clipBehavior: clipBehavior,
+            ),
+          ),
+    ],
+  );
+}
+
+List<TreemapGeometryNode<K>> _widgetNodes<K>(
+  TreemapVisualContext<K> visual, {
+  required int? maximumNodes,
+  required bool labels,
+  required bool includeHeaders,
 }) {
   final nodes =
       (labels
@@ -232,30 +339,7 @@ Widget _buildNodeWidgets<K>(
     nodes.length = maximumNodes;
   }
   nodes.sort((a, b) => a.depth.compareTo(b.depth));
-  return Stack(
-    clipBehavior: Clip.none,
-    children: [
-      for (final node in nodes)
-        Positioned(
-          key: ValueKey(node.key),
-          left: (labels ? labelBounds(node) : node.bounds).left,
-          top: (labels ? labelBounds(node) : node.bounds).top,
-          width: (labels ? labelBounds(node) : node.bounds).width,
-          height: (labels ? labelBounds(node) : node.bounds).height,
-          child: _configureNodeWidget(
-            (labels && node.headerBounds != null
-                ? parentBuilder ?? builder
-                : builder)(
-              context,
-              visual.presentation.details[node.key]!,
-              visual.presentation.statesFor(node.key),
-            ),
-            ignorePointer: ignorePointer,
-            clipBehavior: clipBehavior,
-          ),
-        ),
-    ],
-  );
+  return nodes;
 }
 
 Widget _configureNodeWidget(

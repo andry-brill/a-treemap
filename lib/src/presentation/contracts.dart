@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../appearance/resolver.dart';
 import '../controller.dart';
 import 'context.dart';
+import 'label_placement.dart';
 import 'state.dart';
 
 typedef TreemapNodeWidgetBuilder<K> =
@@ -47,6 +48,20 @@ abstract interface class TreemapLabelLayer<K> {
   double? resolveParentHeaderHeight(BuildContext context);
 
   Widget build(BuildContext context, TreemapVisualContext<K> visual);
+}
+
+/// Optional preparation capability for label layers that reserve content space.
+///
+/// The chart calls this once per build, after displayed geometry is resolved and
+/// before building tiles. Return the prepared labels and their remaining content
+/// bounds together so measurement and rendering agree. Wrappers delegate this
+/// capability explicitly. Existing label layers can continue to render overlays
+/// by implementing only [TreemapLabelLayer].
+abstract interface class TreemapLabelPlacementProvider<K> {
+  TreemapLabelPlacement<K> preparePlacement(
+    BuildContext context,
+    TreemapVisualContext<K> visual,
+  );
 }
 
 /// Optional accessibility layer that exposes treemap nodes to assistive

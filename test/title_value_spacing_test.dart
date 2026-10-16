@@ -301,10 +301,7 @@ void main() {
             expect(widgets.config, same(config));
             expect(canvas.config, same(config));
             expect(widgets.resolveParentHeaderHeight(context), 41.5);
-            expect(
-              canvas.resolveParentHeaderHeight(context),
-              config.linesBuilder == null ? 41.5 : 35,
-            );
+            expect(canvas.resolveParentHeaderHeight(context), 41.5);
           }
           return const SizedBox.shrink();
         },
@@ -535,7 +532,9 @@ void main() {
     },
   );
 
-  testWidgets('custom canvas blocks ignore spacing', (tester) async {
+  testWidgets('custom canvas blocks space every pair and include gaps in fit', (
+    tester,
+  ) async {
     final custom = _config.copyWith(
       linesBuilder: (_, _, _, _) => const [
         TreemapCanvasLabelLine(text: 'AA', style: _title),
@@ -543,14 +542,60 @@ void main() {
         TreemapCanvasLabelLine(text: '2', style: _value),
       ],
     );
-    for (final parent in [null, const TreemapParentLabelConfig()]) {
-      final ordinary = _paint(config: custom, parent: parent);
-      final spaced = _paint(
-        config: custom.copyWith(spacing: 80),
-        parent: parent,
+    for (final parent in [null, const TreemapParentLabelConfig(height: 100)]) {
+      for (final alignment in [
+        Alignment.topLeft,
+        Alignment.center,
+        Alignment.bottomRight,
+      ]) {
+        final config = custom.copyWith(alignment: alignment);
+        final ordinary = _paint(config: config, parent: parent);
+        expect(ordinary, hasLength(3));
+        for (final spacing in [.5, 6.0, 6.5]) {
+          final spaced = _paint(
+            config: config.copyWith(spacing: spacing),
+            parent: parent,
+          );
+          expect(spaced, hasLength(3));
+          final topShift = -spacing * (alignment.y + 1);
+          for (var i = 0; i < spaced.length; i++) {
+            expect(spaced[i].top - ordinary[i].top, topShift + i * spacing);
+            if (i > 0) {
+              expect(spaced[i].top - spaced[i - 1].bottom, spacing);
+            }
+          }
+        }
+      }
+      final config = custom.copyWith(spacing: 6.5, padding: _padding);
+      expect(
+        _paint(config: config, parent: parent, size: const Size(100, 58)),
+        hasLength(3), // 40 px of text + two 6.5 px gaps + 5 px padding.
       );
-      expect(ordinary, hasLength(3));
-      expect(spaced, orderedEquals(ordinary));
+      expect(
+        _paint(config: config, parent: parent, size: const Size(100, 57.5)),
+        isEmpty,
+      );
+    }
+  });
+
+  testWidgets('zero or one custom block receives no spacing', (tester) async {
+    for (final count in [0, 1]) {
+      final custom = _config.copyWith(
+        linesBuilder: (_, _, _, _) => const [
+          TreemapCanvasLabelLine(text: 'AA', style: _title),
+        ].take(count),
+      );
+      for (final parent in [
+        null,
+        const TreemapParentLabelConfig(height: 100),
+      ]) {
+        final ordinary = _paint(config: custom, parent: parent);
+        expect(ordinary, hasLength(count));
+        expect(
+          _paint(config: custom.copyWith(spacing: 80), parent: parent),
+          orderedEquals(ordinary),
+        );
+      }
     }
   });
 
@@ -615,7 +660,10 @@ void main() {
         await measure(const TreemapParentLabelConfig(height: 40), scale: 2),
         40,
       );
-      expect(await measure(const TreemapParentLabelConfig(), custom: true), 35);
+      expect(
+        await measure(const TreemapParentLabelConfig(), custom: true),
+        41.5,
+      );
       expect(callbacks, 0);
     },
   );

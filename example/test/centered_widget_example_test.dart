@@ -32,6 +32,7 @@ void main() {
   test('controls validate and survive URL round trips', () {
     var config = PlaygroundConfig.defaults();
     expect(config.flag('tiles.centered.enabled'), isFalse);
+    expect(config.text('tiles.centered.region'), 'available');
     expect(config.number('tiles.centered.widthFactor'), 1);
     expect(config.number('tiles.centered.heightFactor'), 1);
     expect(config.optionalNumber('tiles.centered.aspect'), isNull);
@@ -42,6 +43,7 @@ void main() {
     );
     config = config.withValues({
       'tiles.centered.enabled': true,
+      'tiles.centered.region': 'tile',
       'tiles.centered.widthFactor': .75,
       'tiles.centered.heightFactor': .25,
       'tiles.centered.aspect': 1.5,
@@ -103,6 +105,11 @@ void main() {
         await tester.pumpAndSettle();
         final layer = _overlay(tester);
         final tilePainter = _tiles(tester);
+        final labels = tester
+            .widgetList<CustomPaint>(find.byType(CustomPaint))
+            .map((widget) => widget.painter)
+            .whereType<TreemapCanvasLabelPainter<String>>()
+            .single;
         final leaves = tilePainter.snapshot.visibleNodes.where(
           (node) => !node.hasChildren,
         );
@@ -111,8 +118,16 @@ void main() {
         var shown = 0;
         var hidden = 0;
         for (final node in leaves) {
-          final factoredWidth = node.bounds.width * layer.widthFactor;
-          final factoredHeight = node.bounds.height * layer.heightFactor;
+          final body =
+              labels.prepare().contentBounds[node.key] ??
+              Rect.fromLTWH(
+                node.bounds.left,
+                node.bounds.top,
+                node.bounds.width,
+                node.bounds.height,
+              );
+          final factoredWidth = body.width * layer.widthFactor;
+          final factoredHeight = body.height * layer.heightFactor;
           final isSquare = id.endsWith('aspect');
           final side = factoredWidth < factoredHeight
               ? factoredWidth
@@ -121,30 +136,27 @@ void main() {
           final height = isSquare ? side : factoredHeight;
           final minimum = layer.minimumSize;
           final visible =
-              minimum == null ||
-              (width >= minimum.width && height >= minimum.height);
+              width > 0 &&
+              height > 0 &&
+              (minimum == null ||
+                  (width >= minimum.width && height >= minimum.height));
           expect(_content(node.key), visible ? findsOneWidget : findsNothing);
           if (visible) {
             shown++;
             expect(tester.getSize(_content(node.key)), Size(width, height));
             expect(
               tester.getCenter(_content(node.key)).dx,
-              closeTo(origin.dx + node.bounds.centerX, .001),
+              closeTo(origin.dx + body.center.dx, .001),
             );
             expect(
               tester.getCenter(_content(node.key)).dy,
-              closeTo(origin.dy + node.bounds.centerY, .001),
+              closeTo(origin.dy + body.center.dy, .001),
             );
           } else {
             hidden++;
           }
         }
         expect(shown, greaterThan(0));
-        final labels = tester
-            .widgetList<CustomPaint>(find.byType(CustomPaint))
-            .map((widget) => widget.painter)
-            .whereType<TreemapCanvasLabelPainter<String>>()
-            .single;
         expect(labels.config.alignment, Alignment.topLeft);
         if (id.endsWith('aspect')) {
           expect(layer.aspect, 1);

@@ -95,7 +95,7 @@ void main() {
       expect(store.exampleKey, isNull);
       expect(store.historyIntent, HistoryIntent.push);
       expect(store.location.uri.queryParameters['data'], 'markets');
-      store.change('layout.innerSpacing', 3);
+      store.change('layout.innerSpacing', 0);
       expect(store.exampleKey, isNull);
       store.selectPreset('appearance-auto-visible');
       expect(store.location.uri.queryParameters, {
@@ -144,7 +144,7 @@ void main() {
     store.draftRaw('layout.innerSpacing', '9');
     store.commitField('labels.titleSize');
     expect(store.committed.number('labels.titleSize'), 16);
-    expect(store.committed.number('layout.innerSpacing'), 3);
+    expect(store.committed.number('layout.innerSpacing'), 0);
     expect(store.preview.number('layout.innerSpacing'), 9);
     expect(store.rawDraft('layout.innerSpacing'), '9');
     store.commitField('layout.innerSpacing');

@@ -16,7 +16,7 @@ screenshots:
   - description: 'any-treemap examples'
     path: example/web/example.png
 
-version: 3.0.2
+version: 4.0.0
 
 environment:
   sdk: '>=3.8.0 <4.0.0'

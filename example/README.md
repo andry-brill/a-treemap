@@ -2,6 +2,9 @@
 
 Run `flutter run -d chrome` from this directory. The editor has a 360-pixel property panel on desktop and a Properties drawer below 900 pixels. The preview remains bounded and centered. Choose an example, select shared data, then edit individual settings. Search finds properties by label, key, or help text.
 
+Inner spacing defaults to `0`, matching `TreemapLayoutConfig`. Presets inherit
+this value unless they explicitly override `layout.innerSpacing`.
+
 Outer, level, label and surrounding padding each use one input. Enter whole
 numbers from 0 to 256: `5` applies to every side, `5,10` means horizontal 5 and
 vertical 10, and `1,2,3,4` means left, top, right and bottom. The slider changes
@@ -38,7 +41,7 @@ Presets stay grouped in `lib/scenarios/*.dart`. Each `ExamplePreset` supplies it
 
 ## Validation
 
-Run `flutter analyze`, `flutter test`, and `flutter build web` here, plus package analysis/tests at the repository root. Tests cover all 63 presets, configuration/URL round trips, draft validation, browser route restoration, responsive/help UI, interaction/state ownership, and chart goldens. The existing example golden images moved into `test/goldens` without changing their baselines.
+Run `flutter analyze`, `flutter test`, and `flutter build web` here, plus package analysis/tests at the repository root. Tests cover all 68 presets, configuration/URL round trips, draft validation, browser route restoration, responsive/help UI, interaction/state ownership, and chart goldens. The existing example golden images moved into `test/goldens` without changing their baselines.
 
 CI runs only on `windows-latest` with Flutter **3.47.3**. All package and example
 goldens use Flutter's standard pixel-exact comparator with **zero tolerance**;

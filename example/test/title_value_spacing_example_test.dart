@@ -28,7 +28,7 @@ TreemapPresentationState<String> _state(WidgetTester tester) =>
 
 void main() {
   test(
-    'spacing is validated, round-trips, and is disabled for custom canvas lines',
+    'spacing is validated, round-trips, and supports custom canvas lines',
     () {
       expect(PlaygroundConfig.defaults().number(_spacing), 0);
       final preset = presetsByKey[_preset]!.config;
@@ -46,8 +46,8 @@ void main() {
         'labels.linesBuilder': 'titleValueDepth',
       });
       final property = propertiesByKey[_spacing]!;
-      expect(property.enabled(custom), isFalse);
-      expect(property.disabledReason(custom), contains('Custom canvas lines'));
+      expect(property.enabled(custom), isTrue);
+      expect(property.disabledReason(custom), isNull);
       expect(
         property.enabled(custom.withValues({'labels.renderer': 'widgets'})),
         isTrue,
@@ -98,7 +98,7 @@ void main() {
       );
       store.change('labels.linesBuilder', 'titleValueDepth');
       await tester.pumpAndSettle();
-      expect(tester.widget<TextField>(field).enabled, isFalse);
+      expect(tester.widget<TextField>(field).enabled, isTrue);
       store.change('labels.renderer', 'widgets');
       await tester.pumpAndSettle();
       expect(tester.widget<TextField>(field).enabled, isTrue);

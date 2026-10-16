@@ -8,6 +8,7 @@ import '../appearance/style.dart';
 import '../controller.dart';
 import '../model.dart';
 import 'actions.dart';
+import 'label_placement.dart';
 import 'state.dart';
 
 /// Read-only output, commands and environment supplied to every visual layer.
@@ -19,7 +20,19 @@ final class TreemapVisualContext<K> {
     required this.textDirection,
     required this.textScaler,
     this.tileAppearance,
-  });
+  }) : _contentBounds = const {},
+       _resources = _TreemapFrameResources<K>();
+
+  TreemapVisualContext._withContentBounds(
+    TreemapVisualContext<K> source,
+    Map<TreemapKey<K>, Rect> bounds,
+  ) : presentation = source.presentation,
+      actions = source.actions,
+      textDirection = source.textDirection,
+      textScaler = source.textScaler,
+      tileAppearance = source.tileAppearance,
+      _resources = source._resources,
+      _contentBounds = Map.unmodifiable(bounds);
 
   final TreemapPresentationState<K> presentation;
   final TreemapActions<K> actions;
@@ -30,7 +43,47 @@ final class TreemapVisualContext<K> {
   /// Standalone compositions forward their tile layer's source here. Resources
   /// never enter geometry or published presentation state.
   final TreemapAppearanceResolver<K>? tileAppearance;
-  final _resources = _TreemapFrameResources<K>();
+  final _TreemapFrameResources<K> _resources;
+  final Map<TreemapKey<K>, Rect> _contentBounds;
+
+  /// Shares frame resources while applying a prepared label placement.
+  /// Standalone compositions prepare labels first, then pass this context to
+  /// their tiles and render [TreemapLabelPlacement.child].
+  TreemapVisualContext<K> withContentBounds(Map<TreemapKey<K>, Rect> bounds) =>
+      TreemapVisualContext._withContentBounds(this, bounds);
+
+  /// Displayed content space, excluding only this node's own reservations.
+  /// Children already exclude their ancestors' headers through geometry.
+  Rect contentBoundsFor(
+    TreemapKey<K> key, {
+    TreemapContentRegion region = TreemapContentRegion.available,
+  }) {
+    final details = presentation.details[key]!;
+    final bounds = details.bounds;
+    final tile = Rect.fromLTWH(
+      bounds.left,
+      bounds.top,
+      bounds.width,
+      bounds.height,
+    );
+    if (region == TreemapContentRegion.tile) return tile;
+    final top = (details.headerBounds?.bottom ?? tile.top).clamp(
+      tile.top,
+      tile.bottom,
+    );
+    final body = Rect.fromLTRB(tile.left, top, tile.right, tile.bottom);
+    final reserved = _contentBounds[key];
+    if (reserved == null) return body;
+    // Clamp custom reservations to the body, including empty rectangles.
+    final left = reserved.left.clamp(body.left, body.right);
+    final y = reserved.top.clamp(body.top, body.bottom);
+    return Rect.fromLTRB(
+      left,
+      y,
+      reserved.right.clamp(left, body.right),
+      reserved.bottom.clamp(y, body.bottom),
+    );
+  }
 
   /// Shares appearance results between layers using the same resolver.
   Map<TreemapKey<K>, TreemapAppearance> resolveAppearances(

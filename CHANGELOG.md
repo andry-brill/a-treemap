@@ -1,7 +1,29 @@
 # Changelog
 
-## 3.0.2
+## 4.0.0
 
+- **Breaking:** `TreemapLabelConfig.spacing` now separates custom canvas
+  `linesBuilder` blocks too. Vertical fit and automatic available-space
+  reservation include every gap. Nominal automatic parent headers include
+  their title/value gap consistently; additional custom lines require an
+  explicit parent height.
+- Added a two-labels-plus-value canvas example with editable spacing and a
+  centered gradient container showing the remaining space (68 presets total).
+- **Breaking:** `TreemapCenteredWidgetLayer` now uses available content space,
+  excluding reserved headers and labels, by default. Set
+  `region: TreemapContentRegion.tile` to retain the full-tile allocation from
+  3.0.1. Factors, aspect fitting and cutoffs apply to the selected region.
+- Aligned the playground's inner-spacing default with `TreemapLayoutConfig` at
+  zero. Presets can still declare their own spacing.
+- Added shared label placement. Centered widget and fixed-text layers now use
+  available content space by default; `TreemapContentRegion.tile` opts into full
+  tile bounds. Sizing, aspect fitting and cutoffs use the selected region.
+- Canvas labels share prepared measurements and reserve top/bottom strips;
+  explicit fixed reservations support canvas and widget labels. Custom layers
+  can opt into `TreemapLabelPlacementProvider` without changing existing label
+  implementations. Structural parent headers are respected without double insets.
+- Added region/reservation controls and four shared-placement scenarios,
+  with tests for transitions, scaling, custom labels and skipped content.
 - Added `TreemapCenteredTextLayer.fixed` for single-line canvas text fitted to a
   shared template, with independent factors, optional aspect ratio and size
   cutoff. The template itself defines the sizing budget; no length or font size
@@ -9,7 +31,7 @@
 - Cached template metrics and distinct text painters survive geometry updates,
   transitions and layer recreation. Unused resources are disposed; typography,
   locale, direction and font changes invalidate measurements.
-- Added an editable-template playground scenario and controls (63 presets),
+- Added an editable-template playground scenario and controls,
   including generated text that follows the template's grapheme length.
 
 ## 3.0.1

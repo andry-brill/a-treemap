@@ -97,7 +97,7 @@ void main() {
       await provider.didPushRouteInformation(RouteInformation(uri: compact));
       await tester.pumpAndSettle();
       expect(store.exampleKey, 'data-explicit-tree');
-      expect(store.preview.number('layout.innerSpacing'), 3);
+      expect(store.preview.number('layout.innerSpacing'), 0);
       expect(
         tester.widget<TreemapChart<String>>(chartFinder).controller!.focusKey,
         const TreemapKey.source('root'),
@@ -200,7 +200,7 @@ void main() {
         find.byType(TreemapChart<String>),
       );
       expect(chart.tree.root.key, 'merchants');
-      expect(chart.layout.innerSpacing, 3);
+      expect(chart.layout.innerSpacing, 0);
       expect(tester.takeException(), isNull);
     },
   );

@@ -1,5 +1,6 @@
 import 'package:any_treemap/any_treemap.dart';
 import 'package:any_treemap/src/painters/centered_text_painter.dart';
+import 'package:any_treemap/src/painters/canvas_label_painter.dart';
 import 'package:any_treemap/src/painters/tile_painter.dart';
 import 'package:any_treemap_example/playground/config.dart';
 import 'package:any_treemap_example/playground/location.dart';
@@ -26,12 +27,14 @@ void main() {
   test('template and allocation settings validate and round-trip URLs', () {
     var config = PlaygroundConfig.defaults();
     expect(config.flag('tiles.centeredText.enabled'), isFalse);
+    expect(config.text('tiles.centeredText.region'), 'available');
     expect(
       propertiesByKey['tiles.centeredText.template']!.enabled(config),
       isFalse,
     );
     config = config.withValues({
       'tiles.centeredText.enabled': true,
+      'tiles.centeredText.region': 'tile',
       'tiles.centeredText.template': 'WWW',
       'tiles.centeredText.widthFactor': .8,
       'tiles.centeredText.heightFactor': .4,
@@ -96,12 +99,22 @@ void main() {
         final bounds = {
           for (final n in _tiles(tester).snapshot.visibleNodes) n.key: n.bounds,
         };
+        final content = tester
+            .widgetList<CustomPaint>(find.byType(CustomPaint))
+            .map((w) => w.painter)
+            .whereType<TreemapCanvasLabelPainter<String>>()
+            .single
+            .prepare()
+            .contentBounds;
         for (final entry in before.entries) {
           final tile = bounds[entry.key]!;
-          expect(entry.bounds.center.dx, closeTo(tile.centerX, .001));
-          expect(entry.bounds.center.dy, closeTo(tile.centerY, .001));
-          expect(entry.bounds.width, closeTo(tile.width * .65, .001));
-          expect(entry.bounds.height, closeTo(tile.height * .65, .001));
+          final body =
+              content[entry.key] ??
+              Rect.fromLTWH(tile.left, tile.top, tile.width, tile.height);
+          expect(entry.bounds.center.dx, closeTo(body.center.dx, .001));
+          expect(entry.bounds.center.dy, closeTo(body.center.dy, .001));
+          expect(entry.bounds.width, closeTo(body.width * .65, .001));
+          expect(entry.bounds.height, closeTo(body.height * .65, .001));
           expect(entry.painter.height, before.referenceSize.height);
         }
         await tester.pumpTreemapApp(

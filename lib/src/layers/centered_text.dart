@@ -6,6 +6,7 @@ import '../appearance/resolver.dart';
 import '../painters/centered_text_painter.dart';
 import '../presentation/context.dart';
 import '../presentation/contracts.dart';
+import '../presentation/label_placement.dart';
 import 'centered_content.dart';
 
 final _lineBreaks = RegExp(r'[\r\n\u0085\u2028\u2029]');
@@ -40,6 +41,7 @@ final class TreemapCenteredTextLayer<K> implements TreemapTileLayer<K> {
     this.heightFactor = 1,
     this.aspect,
     this.minimumSize,
+    this.region = TreemapContentRegion.available,
     this.appearance,
   }) : assert(template.length > 0),
        assert(widthFactor >= 0 && widthFactor <= 1),
@@ -58,6 +60,9 @@ final class TreemapCenteredTextLayer<K> implements TreemapTileLayer<K> {
   final TextStyle style;
   final double widthFactor;
   final double heightFactor;
+
+  /// Available space by default; [TreemapContentRegion.tile] ignores labels.
+  final TreemapContentRegion region;
 
   /// Optional width-to-height ratio fitted after the independent factors.
   final double? aspect;
@@ -190,8 +195,9 @@ class _CenteredTextState<K> extends State<_CenteredText<K>> {
     final entries = <TreemapCenteredTextPaintEntry<K>>[];
     final used = <String>{};
     for (final node in visual.presentation.visibleLeafNodes) {
+      final bounds = visual.contentBoundsFor(node.key, region: layer.region);
       final size = resolveCenteredContentSize(
-        Size(node.bounds.width, node.bounds.height),
+        bounds.size,
         widthFactor: layer.widthFactor,
         heightFactor: layer.heightFactor,
         aspect: layer.aspect,
@@ -223,7 +229,7 @@ class _CenteredTextState<K> extends State<_CenteredText<K>> {
       entries.add((
         key: node.key,
         bounds: Rect.fromCenter(
-          center: Offset(node.bounds.centerX, node.bounds.centerY),
+          center: bounds.center,
           width: size.width,
           height: size.height,
         ),

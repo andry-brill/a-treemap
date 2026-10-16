@@ -232,13 +232,23 @@ final class _TreemapViewportState<K> extends State<_TreemapViewport<K>> {
     final chart = widget.chart;
     final owner = widget.coordinator;
     if (state.targetSnapshot!.nodes.isEmpty) return const SizedBox.shrink();
-    final visual = TreemapVisualContext<K>(
+    var visual = TreemapVisualContext<K>(
       presentation: state,
       actions: owner,
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
       tileAppearance: chart.tiles.appearance,
     );
+    final labels = chart.labels;
+    final placement = labels is TreemapLabelPlacementProvider<K>
+        ? (labels as TreemapLabelPlacementProvider<K>).preparePlacement(
+            context,
+            visual,
+          )
+        : null;
+    if (placement != null) {
+      visual = visual.withContentBounds(placement.contentBounds);
+    }
     final tooltip = chart.tooltip;
     final details = state.tooltipDetails;
     final tooltipWidget =
@@ -283,8 +293,10 @@ final class _TreemapViewportState<K> extends State<_TreemapViewport<K>> {
             clipBehavior: chart.clipBehavior,
             children: [
               Positioned.fill(child: chart.tiles.build(context, visual)),
-              if (chart.labels case final labels?)
-                Positioned.fill(child: labels.build(context, visual)),
+              if (labels != null)
+                Positioned.fill(
+                  child: placement?.child ?? labels.build(context, visual),
+                ),
               if (chart.semantics case final semantics?)
                 Positioned.fill(child: semantics.build(context, visual)),
               ?tooltipWidget,

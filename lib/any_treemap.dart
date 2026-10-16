@@ -3,6 +3,7 @@ library;
 export 'src/appearance/breadcrumbs.dart';
 export 'src/appearance/color_scale.dart';
 export 'src/appearance/label.dart';
+export 'src/appearance/label_reservation.dart' show TreemapLabelReservation;
 export 'src/appearance/parent_label.dart';
 export 'src/appearance/legend.dart';
 export 'src/appearance/overlay.dart';
@@ -30,6 +31,7 @@ export 'src/presentation/actions.dart';
 export 'src/presentation/context.dart'
     show TreemapVisualContext, TreemapTooltipContext;
 export 'src/presentation/contracts.dart';
+export 'src/presentation/label_placement.dart';
 export 'src/presentation/state.dart'
     show TreemapPresentationState, TreemapPresentationScope, TreemapVisualState;
 export 'src/presentation/transitions.dart';

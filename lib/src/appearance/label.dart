@@ -158,11 +158,12 @@ final class TreemapLabelConfig<K> {
   /// an explicit parent height already includes this padding.
   final EdgeInsets padding;
 
-  /// Gap between nonempty standard title and value blocks, in logical pixels.
+  /// Gap between consecutive canvas text blocks, in logical pixels.
   ///
   /// Shared by ordinary labels and parent headers; unaffected by text scaling.
-  /// Custom canvas [linesBuilder] output keeps its own layout and ignores this
-  /// value. Widget builders insert their own spacer using this same setting.
+  /// Applies between every entry returned by [linesBuilder], after the complete
+  /// preceding block even when it wraps. Automatic content reservations include
+  /// every gap. Widget builders insert their own spacers using this setting.
   final double spacing;
 
   /// Opacity applied to the resolved value color when [valueStyle] has none.

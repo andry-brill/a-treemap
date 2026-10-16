@@ -335,7 +335,7 @@ List<PlaygroundProperty> propertyDefinitions() {
     'Inner spacing',
     'Layout',
     'Logical-pixel gap between siblings. Spacing affects available tile geometry.',
-    3,
+    0,
     max: 64,
   );
   for (final entry in [
@@ -513,12 +513,23 @@ List<PlaygroundProperty> propertyDefinitions() {
     'Overlay a rounded container with a bright yellow, orange and pink gradient on each deepest visible block.',
     false,
   );
+  for (final kind in ['centered', 'centeredText']) {
+    c(
+      'tiles.$kind.region',
+      kind == 'centered' ? 'Centered widget region' : 'Centered text region',
+      'Tile Appearance',
+      'Available uses the space after headers and label reservations. Full tile ignores reservations. Factors, aspect and cutoff apply to the chosen region.',
+      'available',
+      ['available', 'tile'],
+      labels: {'available': 'Available space', 'tile': 'Full tile'},
+    );
+  }
   for (final axis in ['width', 'height']) {
     n(
       'tiles.centered.${axis}Factor',
       'Centered $axis factor',
       'Tile Appearance',
-      'Fraction of the displayed tile $axis allocated to the centered widget. Width and height are independent.',
+      'Fraction of the chosen content region $axis allocated to the centered widget. Width and height are independent.',
       1,
       max: 1,
     );
@@ -569,7 +580,7 @@ List<PlaygroundProperty> propertyDefinitions() {
       'tiles.centeredText.${axis}Factor',
       'Centered text $axis factor',
       'Tile Appearance',
-      'Fraction of displayed tile $axis available to the fixed-template canvas text.',
+      'Fraction of the chosen content region $axis available to the fixed-template canvas text.',
       .65,
       max: 1,
     );
@@ -728,6 +739,23 @@ List<PlaygroundProperty> propertyDefinitions() {
     'standard',
     ['standard', 'icons', 'category'],
   );
+  c(
+    'labels.reservation',
+    'Label reservation',
+    'Labels',
+    'Automatic reserves measured canvas labels at the top or bottom; middle labels stay overlays. Top/bottom explicitly dock labels. None keeps an overlay. Widget labels require a reserved height.',
+    'automatic',
+    ['automatic', 'top', 'bottom', 'none'],
+  );
+  n(
+    'labels.reservedHeight',
+    'Reserved label height',
+    'Labels',
+    'Optional fixed height including padding. It remains reserved if text is omitted. Auto measures canvas labels; widget labels reserve no space until a height is supplied.',
+    null,
+    max: 500,
+    nullLabel: 'Auto',
+  );
   b(
     'labels.parents.enabled',
     'Parent headers',
@@ -809,9 +837,9 @@ List<PlaygroundProperty> propertyDefinitions() {
     'labels.linesBuilder',
     'Canvas lines builder',
     'Labels',
-    'Custom title/value/depth lines replace built-in line construction while preserving canvas clipping and text policy.',
+    'Custom lines replace built-in construction while preserving spacing, clipping and text policy. Two labels plus value puts an italic depth label between the title and value.',
     'default',
-    ['default', 'titleValueDepth'],
+    ['default', 'titleValueDepth', 'twoLabelsValue'],
   );
   s(
     'labels.fallbackTitle',
@@ -874,9 +902,9 @@ List<PlaygroundProperty> propertyDefinitions() {
   );
   n(
     'labels.spacing',
-    'Title/value spacing',
+    'Label line spacing',
     'Labels',
-    'Gap in logical pixels between standard title and value blocks in children and parent headers. Automatic headers include it when both parts are enabled. Text scaling does not scale the gap; custom canvas lines ignore it.',
+    'Gap in logical pixels between canvas text blocks, including custom lines. Available-space reservations include every gap. Automatic parent headers use nominal title/value metrics and one gap when both parts are enabled; use an explicit height for additional custom lines. Text scaling does not scale the gap.',
     0,
     max: 64,
   );
@@ -1746,11 +1774,6 @@ String? propertyDisabledReason(String key, PlaygroundConfig config) {
   if (key == 'labels.linesBuilder' &&
       config.text('labels.renderer') != 'canvas') {
     return 'Used by the Canvas label renderer.';
-  }
-  if (key == 'labels.spacing' &&
-      config.text('labels.renderer') == 'canvas' &&
-      config.text('labels.linesBuilder') != 'default') {
-    return 'Custom canvas lines own their layout and ignore title/value spacing.';
   }
   if (key == 'labels.ellipsis' && config.text('labels.renderer') != 'canvas') {
     return 'Custom ellipsis text is used by the Canvas label renderer.';

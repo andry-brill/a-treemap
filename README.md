@@ -35,7 +35,7 @@ flutter pub get
 flutter run -d chrome
 ```
 
-The **Example** chooser loads one of 63 named presets. **Data** selects a shared dataset, and the property panel controls layout, colors, visual layers, interaction, accessibility, animation, and preview dimensions. Property info buttons explain each setting. On narrow screens, open **Properties** from the toolbar.
+The **Example** chooser loads one of 68 named presets. **Data** selects a shared dataset, and the property panel controls layout, colors, visual layers, interaction, accessibility, animation, and preview dimensions. Property info buttons explain each setting. On narrow screens, open **Properties** from the toolbar.
 
 Preset links contain only an example key, such as `?example=appearance-auto-visible`. Editing any property switches to **Custom** and puts the complete configuration, including `data`, in the URL. **Copy link** includes valid pending edits. Browser Back/Forward restores committed changes; navigation, current selection, hover, and tooltips remain temporary.
 
@@ -734,14 +734,14 @@ The layer supplies positioning but no clipping or styling. Choose it for images,
 **`TreemapCenteredWidgetLayer<K>`** - centers a sized widget in each deepest visible block, including collapsed parents and aggregates.
 
 - `builder` - required callback receiving context, node details, and visual states.
-- `widthFactor` / `heightFactor` - independent fractions of the displayed tile dimensions, each defaulting to `1.0`; values must be in `[0, 1]`. The allocated box can be rectangular.
+- `widthFactor` / `heightFactor` - independent fractions of the selected content region, each defaulting to `1.0`; values must be in `[0, 1]`. The allocated box can be rectangular.
 - `aspect` - optional finite, positive width-to-height ratio, defaulting to null. After applying both factors, fit the largest box with this ratio inside the resolved dimensions. `1` makes a square, `2` makes a box twice as wide as tall. Fitting only shrinks dimensions.
 - `minimumSize` - optional `Size` in logical pixels, defaulting to null. If either computed dimension is below its minimum, content is skipped without calling the builder. Equality passes; empty allocations are always skipped. Minimum dimensions must be finite and nonnegative (asserted when building to preserve the const constructor).
 - `ignorePointer` - defaults to true so chart gestures remain available.
 - `clipBehavior` - clips to the allocated content box; defaults to `Clip.hardEdge`.
 - `appearance` - optional background declaration for labels; the layer paints no background.
 
-The layer starts with width `tile.width * widthFactor` and height `tile.height * heightFactor`, applies `aspect` when supplied, then checks `minimumSize` against the final dimensions and wraps content in a centered `SizedBox`. For a 200 × 100 tile with both factors 0.5, `aspect: 1` produces a 50 × 50 box. It allocates space without automatically scaling the child's internal content. Use `FittedBox` inside the builder to scale an icon or image. The cutoff affects only the widget, leaving tile geometry, aggregation and hit testing unchanged. Text labels remain independent and can overlap the content.
+The layer starts with width `region.width * widthFactor` and height `region.height * heightFactor`, applies `aspect` when supplied, then checks `minimumSize` against the final dimensions and wraps content in a centered `SizedBox`. For a 200 × 100 available region with both factors 0.5, `aspect: 1` produces a 50 × 50 box. It allocates space without automatically scaling the child's internal content. Use `FittedBox` inside the builder to scale an icon or image. The cutoff affects only the widget, leaving tile geometry, aggregation and hit testing unchanged. Top- and bottom-aligned canvas labels reserve space automatically; centered content uses the remaining body by default.
 
 ```dart
 TreemapChart<String>(
@@ -766,6 +766,58 @@ TreemapChart<String>(
   ),
 )
 ```
+
+Both centered layers accept `region: TreemapContentRegion.available` (the default)
+or `TreemapContentRegion.tile` to use full displayed tile bounds. Factors, aspect
+fitting and minimum-size checks apply to the chosen region, and the result is
+centered within that region. A tile with no remaining space skips its builder.
+
+When upgrading from 3.0.1 to 4.0.0, set
+`region: TreemapContentRegion.tile` on `TreemapCenteredWidgetLayer` to retain its
+previous full-tile allocation. The new default respects header and label space.
+
+Canvas labels prepare their text layouts once before tile rendering and share the
+resulting content bounds with both centered layers. Their `reservation` defaults
+to `TreemapLabelReservation.automatic()`: top/bottom aligned labels reserve a
+strip containing the measured text block, padding and spacing. Empty or omitted
+labels reserve nothing. Middle-aligned labels remain overlays.
+
+Use `TreemapLabelReservation.top()` or `.bottom()` to dock labels explicitly,
+`.top(height: 48)` / `.bottom(height: 48)` for a stable fixed allocation, or
+`.none()` to retain overlay placement. Fixed heights include padding and remain
+reserved even if the label is empty or cannot fit. Automatic heights follow
+wrapping, text scaling and state styles, so use a fixed height when content
+should stay in place during those changes.
+
+```dart
+final labels = TreemapCanvasLabels<String>(
+  config: const TreemapLabelConfig(alignment: Alignment.topLeft),
+  reservation: const TreemapLabelReservation.top(height: 48),
+);
+final content = TreemapCenteredWidgetLayer<String>(
+  region: TreemapContentRegion.available,
+  widthFactor: .8,
+  heightFactor: .8,
+  builder: (context, details, states) => const FlutterLogo(),
+);
+```
+
+`TreemapWidgetLabels` defaults to overlay placement. To reserve space, supply an
+explicit strip such as `reservation: TreemapLabelReservation.top(height: 48)`;
+its widgets are constrained to that strip. Custom label layers can implement
+`TreemapLabelPlacementProvider` and return a `TreemapLabelPlacement` containing
+the prepared label widget and a map of remaining rectangles. The chart prepares
+it before building tiles. Existing custom layers without this capability keep
+working as overlays; wrappers must delegate preparation to share reservations.
+Standalone compositions call `preparePlacement(context, visual)`, build tiles
+with `visual.withContentBounds(placement.contentBounds)`, then render
+`placement.child`. Custom tile layers can query `visual.contentBoundsFor(key)`.
+
+Reservations affect presentation only. Tile geometry, aggregation and hit testing
+stay unchanged. Existing parent headers still reserve child space in the layout
+engine; only a node's own header is excluded from its content bounds, so ancestor
+headers are not deducted twice. Bounds follow the displayed transition geometry.
+This does not perform general collision avoidance around arbitrary overlays.
 
 **`TreemapCenteredTextLayer<K>.fixed`** - centered single-line canvas text scaled from a shared template.
 
@@ -895,9 +947,12 @@ multipliers, locale and accessibility text scaling. Automatic parent
 text uses one line per part, independently of child `maxLines`. Fixed-height
 headers use the existing line limit within the allocation. Parent text reuses
 formatters, colors, alignment, direction and overflow behavior; it defaults to
-top-left placement. Custom canvas `linesBuilder` retains its existing precedence
-and owns its content; it ignores `spacing` during painting and automatic
-allocation. Provide an explicit height for additional custom lines.
+top-left placement. Custom canvas `linesBuilder` owns its content and inserts
+`spacing` between each returned block. Automatic structural parent sizing still
+uses nominal title/value metrics and one gap when both parts are enabled;
+provide an explicit parent height for additional custom lines or different
+typography. Automatic available-space reservation for ordinary tile labels uses
+all measured custom blocks, every gap, and vertical padding.
 
 Standard canvas labels insert a gap only between two nonempty title/value blocks,
 after the complete title even when it wraps. Automatic header sizing uses the
@@ -1181,7 +1236,7 @@ Use a higher count for a smoother custom gradient at the cost of more color stop
 - `weightFractionDigits` - decimal precision for non-integer default weights; defaults to `2`.
 - `titleStyle` - base title style for both renderers and nominal automatic header metrics.
 - `padding` - `EdgeInsets` shared by child labels and parent headers; defaults to `EdgeInsets.zero`. Canvas applies it to all lines; widget builders apply it themselves. Vertical padding contributes to automatic header height.
-- `spacing` - finite, nonnegative gap in logical pixels between nonempty standard title/value blocks; defaults to 0. Shared by children and parent headers across canvas/widget labels, independent of text scaling, and ignored by custom canvas `linesBuilder` output.
+- `spacing` - finite, nonnegative gap in logical pixels between consecutive canvas text blocks, including every entry from `linesBuilder`; defaults to 0. Automatic available-space reservation includes `(blockCount - 1) * spacing`, with no gaps for zero or one block. Shared by children and parent headers and independent of text scaling; widget builders insert their own spacers.
 - `valueStyle` - base value style for both renderers and nominal automatic header metrics.
 - `valueColorOpacity` - opacity applied to the inferred value color; defaults to `0.82`.
 - `colorResolver` - derives the base text color from resolved tile appearance.
@@ -1212,7 +1267,9 @@ changes repaint labels without changing the geometry cache key.
 formatters and automatic color fallback to standard lines. Explicit color or
 foreground paint in the final style wins over contrast and value opacity.
 Custom lines receive the same styles as their fourth argument, but retain control
-of their output and bypass standard spacing and color fallback.
+of their output and bypass automatic color fallback. The configured spacing
+applies between consecutive returned blocks, after any wrapped text in each
+block, and contributes to vertical fit and available-space reservation.
 
 ```dart
 final labelConfig = TreemapLabelConfig<String>(
@@ -1238,6 +1295,12 @@ Formatter precedence is localized formatter, ordinary value formatter, node `val
 - `style` - required complete `TextStyle`.
 
 Return an iterable of these values when text belongs on canvas but built-in title/value construction is too restrictive. Use `TreemapWidgetLabels` when the content itself must be a widget.
+
+For two labels plus a value, return three entries in display order. With
+`spacing: 6`, the renderer inserts two 6 px gaps. Automatic available-space
+reservation includes those 12 px along with all three measured blocks and
+vertical padding. The playground's **Custom lines: two labels and a value**
+scenario demonstrates this with a centered gradient container below the labels.
 
 ### Migrating labels and appearance to 3.0.0
 

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import '../geometry.dart';
 import '../widgets/breadcrumb_item.dart';

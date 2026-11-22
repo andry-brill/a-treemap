@@ -1,7 +1,7 @@
 import 'dart:collection';
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/painting.dart';
 
 /// Selects the data used to infer a continuous scale's automatic bounds.
 enum TreemapColorDomainScope {

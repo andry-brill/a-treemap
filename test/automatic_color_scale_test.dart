@@ -323,7 +323,7 @@ void main() {
         tree: TreemapNormalizer.normalize(root),
         targetSnapshot: aggregated,
       );
-      _bounds(presentation.resolveColorScale(visible), 3, 1000);
+      _bounds(presentation.resolveColorScale(visible), 1003, 1003);
       _bounds(presentation.resolveColorScale(_scale()), 1, 1000);
       final aggregate = aggregated.visibleNodes.singleWhere(
         (node) => node.isAggregate,
@@ -336,7 +336,7 @@ void main() {
         tree: TreemapNormalizer.normalize(root),
         targetSnapshot: layout(TreemapMinimumNodePolicy.aggregate),
       );
-      _bounds(presentation.resolveColorScale(visible), 1, 2);
+      _bounds(presentation.resolveColorScale(visible), 1, 1000);
     },
   );
 

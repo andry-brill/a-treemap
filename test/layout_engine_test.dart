@@ -208,11 +208,13 @@ void main() {
     final narrow = run(100);
     final aggregate = narrow.nodes.singleWhere((node) => node.isAggregate);
     expect(aggregate.aggregateMembers.map((node) => node.key), {
+      'n0',
       'n1',
       'n2',
       'n3',
     });
     expect(aggregate.key, isNot(const TreemapKey.source('root')));
+    expect(aggregate.bounds.width, greaterThanOrEqualTo(20));
     final wide = run(2000);
     expect(wide.nodes.where((node) => node.isAggregate), isEmpty);
   });
@@ -260,12 +262,13 @@ void main() {
         minimumNodePolicy: TreemapMinimumNodePolicy.aggregate,
       ),
     );
-    final leaf = snapshot.index[const TreemapKey.source('n7')]!;
+    final leaf = snapshot.index[const TreemapKey.source('n6')]!;
     final aggregate = snapshot.nodes.singleWhere((node) => node.isAggregate);
 
-    expect(aggregate.aggregateMembers, hasLength(8));
-    expect(leaf.bounds.left, closeTo(aggregate.bounds.left, 1e-9));
-    expect(leaf.bounds.right, closeTo(aggregate.bounds.right, 1e-9));
+    expect(aggregate.aggregateMembers, hasLength(9));
+    expect(leaf.bounds.top, closeTo(aggregate.bounds.top, 1e-9));
+    expect(leaf.bounds.bottom, closeTo(aggregate.bounds.bottom, 1e-9));
+    expect(aggregate.bounds.left - leaf.bounds.right, closeTo(16, 1e-9));
     expect(aggregate.bounds.right, closeTo(snapshot.viewport.right, 1e-9));
     expect(aggregate.bounds.bottom, closeTo(snapshot.viewport.bottom, 1e-9));
   });

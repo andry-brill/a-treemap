@@ -34,7 +34,7 @@ Every public feature and meaningfully different variant retains representative c
 | Stable source/ascending/descending/custom sort policy | `layout-sort-policies` | `lib/scenarios/layout.dart` | Smallest weights appear first. Compare source, descending and custom label order. |
 | Four layout origins | `layout-four-origins` | `lib/scenarios/layout.dart` | Four charts share all settings and vary only their starting corner. |
 | Horizontal-first and vertical-first | `layout-axis-orders` | `lib/scenarios/layout.dart` | Two square binary layouts vary only their preferred flow axis. |
-| Outer/level padding, gutters, explicit minimum dimensions, and Other | `layout-minimum-aggregation` | `lib/scenarios/layout.dart` | Small generated leaves become Other below the 70-pixel minimum. Activate Other to reveal its members. |
+| Outer/level padding, gutters, enforced minimum dimensions, iterative Other grouping and reveal fallback | `layout-minimum-aggregation` | `lib/scenarios/layout.dart` | Other grows to meet 70 px width and 24 px height. Activate it to reveal members; show exposes sources if regrouping would recreate the same Other. Return using breadcrumbs. |
 | Custom layout strategy | `layout-custom-strategy` | `lib/scenarios/layout.dart` | A registered custom strategy gives every sibling an equal-width column. |
 | Direct per-node Flutter colors that bypass scale resolution | `appearance-direct-node-colors` | `lib/scenarios/appearance.dart` | Three Flutter colors bypass the configured exact scale. |
 | Exact color scale | `appearance-exact-scale` | `lib/scenarios/appearance.dart` | Exact numeric values map to distinct colors; unmapped values use fallback. |

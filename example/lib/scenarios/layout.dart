@@ -174,7 +174,7 @@ final layoutScenarios = <ExamplePreset>[
     title: "Minimum size and Other",
     category: "Layout",
     description:
-        "Small generated leaves become Other below the 70-pixel minimum. Activate Other to reveal its members.",
+        "Other grows until tiles meet 70 px width and 24 px height. Activate it to reveal members; if regrouping would recreate the same Other, the default show policy exposes sources at their original proportions. Return using breadcrumbs.",
     dataKey: "many-nodes",
     overrides: {
       "layout.minimumWidth": 70,

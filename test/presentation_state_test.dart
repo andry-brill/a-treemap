@@ -186,7 +186,7 @@ void main() {
           .singleWhere((node) => node.isAggregate);
       tiles.visual.actions.hover(aggregate.key);
       await tester.pumpAndSettle();
-      expect(tiles.visual.presentation.hoveredColor, 3);
+      expect(tiles.visual.presentation.hoveredColor, 1003);
       notifications = 0;
       await show(4);
       expect(tiles.visual.presentation.hoveredColor, isNull);
@@ -201,15 +201,15 @@ void main() {
       expect(replacement.key, isNot(aggregate.key));
       tiles.visual.actions.hover(replacement.key);
       await tester.pumpAndSettle();
-      expect(tiles.visual.presentation.hoveredColor, 5);
+      expect(tiles.visual.presentation.hoveredColor, 1005);
       final state = tiles.visual.presentation;
       tiles.visual.actions.revealAggregate(replacement.key);
       await tester.pumpAndSettle();
       expect(tiles.visual.presentation.hoveredColor, isNull);
-      expect(tiles.visual.presentation.resolveColorScale(_scale).maximum, 4);
+      expect(tiles.visual.presentation.resolveColorScale(_scale).maximum, 1000);
       expect(
         state.hoveredColor,
-        5,
+        1005,
       ); // Already delivered output stays immutable.
     },
   );

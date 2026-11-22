@@ -170,7 +170,12 @@ void main() {
       config: config,
     );
     final aggregate = snapshot.nodes.singleWhere((node) => node.isAggregate);
-    expect(aggregate.weight, 3);
+    expect(aggregate.weight, 1003);
+    expect(aggregate.aggregateMembers.map((node) => node.key), [
+      'large',
+      'small-branch',
+      'small-leaf',
+    ]);
     final controller = TreemapController<String>()
       ..synchronize(TreemapNormalizer.normalize(root));
     addTearDown(controller.dispose);
@@ -184,7 +189,11 @@ void main() {
       config: config,
       focus: controller.layoutFocus,
     );
-    expect(_keys(revealed), unorderedEquals(['small-branch', 'small-leaf']));
+    expect(
+      _keys(revealed),
+      unorderedEquals(['large', 'small-branch', 'small-leaf']),
+    );
+    expect(revealed.nodes.where((node) => node.isAggregate), isEmpty);
     expect(revealed.nodes.every((node) => node.depth == 2), isTrue);
     final deeper = engine.layout(
       tree: TreemapNormalizer.normalize(root),

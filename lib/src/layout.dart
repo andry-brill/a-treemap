@@ -87,13 +87,14 @@ enum TreemapMinimumNodePolicy {
   /// Removes nodes whose rectangles are below a configured minimum.
   hide,
 
-  /// Combines undersized siblings into a generated aggregate node.
+  /// Combines undersized siblings and grows the aggregate until all tiles fit.
   aggregate,
 }
 
-/// Handles a sibling set when every node is below its configured minimum.
+/// Handles minimums that cannot be met by further grouping or aggregate reveal.
 enum TreemapInsufficientSpacePolicy {
-  /// Keeps the result selected by [TreemapMinimumNodePolicy].
+  /// Keeps the result selected by [TreemapMinimumNodePolicy]. When revealing
+  /// would recreate an equivalent aggregate, exposes its source tiles instead.
   show,
 
   /// Removes all undersized nodes from the affected sibling set.
@@ -287,6 +288,9 @@ final class TreemapLayoutConfig<K> {
   ///
   /// These thresholds are evaluated when [minimumNodePolicy] is
   /// [TreemapMinimumNodePolicy.hide] or [TreemapMinimumNodePolicy.aggregate].
+  /// Aggregation rechecks final dimensions after spacing and each grouping.
+  /// Unsatisfiable minimums fall back to [insufficientSpacePolicy], including
+  /// reveals that would otherwise recreate the same aggregate membership.
   final double minimumWidth;
   final double minimumHeight;
   final double minimumArea;
@@ -540,6 +544,8 @@ final class TreemapLayoutEngine<K> {
         totals: tree.totals,
         previous: previous,
         parentGeometryKey: work.parentGeometryKey,
+        isAggregateFocus:
+            work.parentGeometryKey == null && resolvedFocus.key.isAggregate,
       );
 
       final visibleDepth = work.childDepth - resolvedFocus.childDepth + 1;
@@ -698,6 +704,7 @@ final class TreemapLayoutEngine<K> {
     required Map<K, double> totals,
     required TreemapGeometrySnapshot<K>? previous,
     required TreemapKey<K>? parentGeometryKey,
+    required bool isAggregateFocus,
   }) {
     var items = <TreemapLayoutItem<K>>[
       for (final entry in children.indexed)
@@ -709,38 +716,119 @@ final class TreemapLayoutEngine<K> {
         ),
     ];
     items = _sort(items, rule, previous);
-    var raw = _layoutItems(items, bounds, depth, rule);
+    var raw = <TreemapKey<K>, TreemapBounds>{};
+    Map<TreemapKey<K>, TreemapBounds> layoutItems() {
+      raw = _layoutItems(items, bounds, depth, rule);
+      return {
+        for (final entry in raw.entries)
+          entry.key: _applySpacing(
+            entry.value,
+            bounds,
+            config.innerSpacing,
+          ).clampTo(bounds),
+      };
+    }
+
+    var adjusted = layoutItems();
     final aggregates = <TreemapKey<K>, List<TreemapNode<K>>>{};
+    bool isSmall(TreemapLayoutItem<K> item) {
+      if (config.minimumNodePolicy == TreemapMinimumNodePolicy.hide) {
+        // Keep the existing hide policy's pre-spacing, single-pass culling.
+        final rect = raw[item.key] ?? TreemapBounds.zero();
+        return rect.width < config.minimumWidth ||
+            rect.height < config.minimumHeight ||
+            rect.area < config.minimumArea;
+      }
+      final rect = adjusted[item.key] ?? TreemapBounds.zero();
+      // Allow only rounding noise at a minimum-size boundary.
+      const tolerance = 1e-9;
+      return rect.width + tolerance < config.minimumWidth ||
+          rect.height + tolerance < config.minimumHeight ||
+          rect.area + tolerance < config.minimumArea;
+    }
 
     if (config.minimumNodePolicy != TreemapMinimumNodePolicy.show &&
-        items.length > 1 &&
         (config.minimumWidth > 0 ||
             config.minimumHeight > 0 ||
             config.minimumArea > 0)) {
-      final small = items.where((item) {
-        final itemBounds = raw[item.key] ?? TreemapBounds.zero();
-        return itemBounds.width < config.minimumWidth ||
-            itemBounds.height < config.minimumHeight ||
-            itemBounds.area < config.minimumArea;
-      }).toList();
+      final sources = List<TreemapLayoutItem<K>>.of(items);
+      final sourceBounds = adjusted;
+      final groupedKeys = <TreemapKey<K>>{};
+      var revealingSources = false;
+      while (items.isNotEmpty) {
+        final small = items.where(isSmall).toList();
+        if (small.isEmpty) break;
 
-      if (small.isNotEmpty) {
-        if (small.length == items.length &&
+        final hide =
+            config.minimumNodePolicy == TreemapMinimumNodePolicy.hide ||
+            revealingSources;
+        // Preserve the existing single-source behavior for the hide policy.
+        if (config.minimumNodePolicy == TreemapMinimumNodePolicy.hide &&
+            sources.length == 1) {
+          break;
+        }
+        if ((hide && small.length == items.length || items.length == 1) &&
             config.insufficientSpacePolicy ==
                 TreemapInsufficientSpacePolicy.error) {
           throw const TreemapLayoutException(
             'The viewport cannot satisfy the configured minimum node size.',
           );
         }
-        if (config.minimumNodePolicy == TreemapMinimumNodePolicy.hide ||
-            (small.length == items.length &&
+        if (hide ||
+            (items.length == 1 &&
                 config.insufficientSpacePolicy ==
                     TreemapInsufficientSpacePolicy.hide)) {
           final smallKeys = small.map((item) => item.key).toSet();
           items = items.where((item) => !smallKeys.contains(item.key)).toList();
+          aggregates.removeWhere((key, _) => smallKeys.contains(key));
+        } else if (items.length == 1) {
+          // No further grouping can help; `show` keeps the undersized result.
+          break;
         } else {
-          final smallKeys = small.map((item) => item.key).toSet();
-          final members = small
+          final previousCount = groupedKeys.length;
+          groupedKeys.addAll(
+            small.where((item) => item.node != null).map((item) => item.key),
+          );
+          if (groupedKeys.length == previousCount) {
+            // Only Other failed. Grow it by the smallest remaining source,
+            // with source order breaking weight ties independently of sorting.
+            final remaining = items.where((item) => item.node != null);
+            final next = remaining.reduce((a, b) {
+              final comparison = a.weight.compareTo(b.weight);
+              return comparison < 0 ||
+                      (comparison == 0 && a.sourceIndex < b.sourceIndex)
+                  ? a
+                  : b;
+            });
+            groupedKeys.add(next.key);
+          }
+
+          if (isAggregateFocus && groupedKeys.length == sources.length) {
+            // Revealing must expose sources or a strict subset of the focus,
+            // never another Other with exactly the same source membership.
+            items = sources;
+            adjusted = sourceBounds;
+            aggregates.clear();
+            switch (config.insufficientSpacePolicy) {
+              case TreemapInsufficientSpacePolicy.show:
+                return _PartitionResult(items, adjusted, aggregates);
+              case TreemapInsufficientSpacePolicy.error:
+                throw const TreemapLayoutException(
+                  'The viewport cannot reveal aggregate members at the '
+                  'configured minimum node size.',
+                );
+              case TreemapInsufficientSpacePolicy.hide:
+                revealingSources = true;
+                continue;
+            }
+          }
+
+          // Rebuild from original sources in their initial layout order. This
+          // preserves complete, flat membership and stable aggregate identity.
+          final grouped = sources
+              .where((item) => groupedKeys.contains(item.key))
+              .toList();
+          final members = grouped
               .map((item) => item.node!)
               .toList(growable: false);
           final signature = Object.hashAll(
@@ -752,26 +840,24 @@ final class TreemapLayoutEngine<K> {
           );
           final aggregate = TreemapLayoutItem<K>(
             key: aggregateKey,
-            weight: small.fold(0, (sum, item) => sum + item.weight),
-            sourceIndex: small.first.sourceIndex,
+            weight: grouped.fold(0, (sum, item) => sum + item.weight),
+            sourceIndex: grouped.first.sourceIndex,
           );
           items = [
-            ...items.where((item) => !smallKeys.contains(item.key)),
+            ...sources.where((item) => !groupedKeys.contains(item.key)),
             aggregate,
           ];
-          aggregates[aggregateKey] = members;
+          aggregates
+            ..clear()
+            ..[aggregateKey] = members;
         }
-        raw = _layoutItems(items, bounds, depth, rule);
+        // Each pass absorbs at least one new source or removes an item, so even
+        // impossible constraints and custom strategies terminate.
+        adjusted = layoutItems();
+        if (config.minimumNodePolicy == TreemapMinimumNodePolicy.hide) break;
       }
     }
 
-    final adjusted = <TreemapKey<K>, TreemapBounds>{};
-    for (final item in items) {
-      var itemBounds = raw[item.key] ?? TreemapBounds.zero();
-      itemBounds = _applySpacing(itemBounds, bounds, config.innerSpacing);
-      itemBounds = itemBounds.clampTo(bounds);
-      adjusted[item.key] = itemBounds;
-    }
     return _PartitionResult(items, adjusted, aggregates);
   }
 

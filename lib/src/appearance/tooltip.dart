@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import '../presentation/contracts.dart';
 import '../widgets/tooltip_container.dart';

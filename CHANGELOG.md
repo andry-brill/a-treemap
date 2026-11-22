@@ -1,5 +1,20 @@
 # Changelog
 
+## 4.0.1
+
+- Replaced unnecessary Material imports in appearance configuration and color
+  scales with widgets/painting imports, without changing public APIs or defaults.
+- Fixed minimum-size aggregation to recheck every final tile, including Other,
+  after spacing and each layout pass. Undersized aggregates absorb the smallest
+  remaining sibling deterministically; original weights, proportions, source
+  membership and aggregate identity conventions are preserved.
+- Apply `insufficientSpacePolicy` when no further grouping can satisfy the
+  minimums. Aggregate reveal never recreates an equivalent full-membership Other:
+  `show` exposes the source tiles even if undersized, `hide` removes undersized
+  sources, and `error` throws. Smaller aggregate subsets remain revealable.
+- Added regression coverage for width, height, combined dimensions, area,
+  spacing, layout reflow, impossible constraints and aggregate navigation.
+
 ## 4.0.0
 
 - **Breaking:** `TreemapLabelConfig.spacing` now separates custom canvas

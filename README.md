@@ -327,7 +327,21 @@ Pass this constant to `TreemapChart.transition`; leave `transition` null when up
 - `minimumHeight` - minimum acceptable node height for hide/aggregate policies; defaults to `0`.
 - `minimumArea` - minimum acceptable node area for hide/aggregate policies; defaults to `0`.
 - `minimumNodePolicy` - `show`, `hide`, or `aggregate`; defaults to `show`.
-- `insufficientSpacePolicy` - behavior when every sibling fails its minimum: keep/aggregate, hide, or throw; defaults to `show`.
+- `insufficientSpacePolicy` - behavior when minimums cannot be satisfied: show the remaining result, hide undersized tiles, or throw; defaults to `show`.
+
+Aggregation checks final tile dimensions after spacing and repeats the layout
+until every tile, including Other, fits. Newly undersized siblings join Other;
+if only Other is undersized, it absorbs the smallest remaining sibling (source
+order breaks equal-weight ties). Weights and proportional areas are preserved,
+so a large minimum can require combining every sibling into one tile.
+
+If even that tile cannot fit, `insufficientSpacePolicy` applies. Revealing Other
+can produce smaller aggregate subsets, but never another Other with the same
+full membership. When such a reveal cannot satisfy the minimums, `show` exposes
+the original sources even if undersized, `hide` removes undersized sources, and
+`error` throws. This avoids endless equivalent aggregate reveals without
+inflating weights. Grouping is deterministic and bounded by the source count;
+it does not search for the grouping that retains the most individual tiles.
 
 Padding and spacing affect geometry. Minimums affect which data is visible and can redistribute area, unlike layer-level `maximumNodes`, which only limits rendering.
 

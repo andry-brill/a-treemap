@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:any_treemap/any_treemap.dart';
 import 'package:any_treemap_example/playground/presets.dart';
 import 'package:any_treemap_example/playground/preview.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

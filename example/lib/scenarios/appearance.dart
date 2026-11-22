@@ -1,8 +1,59 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../scenario.dart';
 
 final appearanceScenarios = <ExamplePreset>[
+  ExamplePreset(
+    id: 'appearance-material-recipe',
+    title: 'Material presentation recipe',
+    category: 'Appearance',
+    description: 'Copy the material builders for breadcrumbs, legend text/pointer and tooltips. Drill into a category and return via breadcrumbs; switch legend kind, light/dark theme, RTL and reduced motion to inspect behavior.',
+    dataKey: 'categories',
+    overrides: {
+      'presentation.recipe': 'material',
+      'breadcrumbs.enabled': true,
+      'legend.enabled': true,
+      'legend.kind': 'bar',
+      'legend.title': 'Weight',
+      'tooltip.enabled': true,
+      'layout.maxVisibleDepth': 1,
+      'color.scale': 'interpolated',
+    },
+  ),
+  ExamplePreset(
+    id: 'appearance-cupertino-recipe',
+    title: 'Cupertino presentation recipe',
+    category: 'Appearance',
+    description: 'Copy the cupertino builders for breadcrumbs, legend text/pointer and tooltips. Drill into a category and return via breadcrumbs; switch legend kind, light/dark theme, RTL and reduced motion to inspect behavior.',
+    dataKey: 'categories',
+    overrides: {
+      'presentation.recipe': 'cupertino',
+      'breadcrumbs.enabled': true,
+      'legend.enabled': true,
+      'legend.kind': 'bar',
+      'legend.title': 'Weight',
+      'tooltip.enabled': true,
+      'layout.maxVisibleDepth': 1,
+      'color.scale': 'interpolated',
+    },
+  ),
+  ExamplePreset(
+    id: 'appearance-custom-recipe',
+    title: 'Custom presentation recipe',
+    category: 'Appearance',
+    description: 'Copy the custom builders for breadcrumbs, legend text/pointer and tooltips. Drill into a category and return via breadcrumbs; switch legend kind, light/dark theme, RTL and reduced motion to inspect behavior.',
+    dataKey: 'categories',
+    overrides: {
+      'presentation.recipe': 'custom',
+      'breadcrumbs.enabled': true,
+      'legend.enabled': true,
+      'legend.kind': 'bar',
+      'legend.title': 'Weight',
+      'tooltip.enabled': true,
+      'layout.maxVisibleDepth': 1,
+      'color.scale': 'interpolated',
+    },
+  ),
   ExamplePreset(
     id: 'appearance-shared-tile-labels',
     title: 'Shared tile backgrounds and label contrast',

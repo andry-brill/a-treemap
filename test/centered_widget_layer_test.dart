@@ -3,7 +3,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:any_treemap/any_treemap.dart';
 import 'package:any_treemap/src/painters/canvas_label_painter.dart';
 import 'package:any_treemap/src/painters/tile_painter.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/pump_app.dart';

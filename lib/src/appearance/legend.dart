@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import '../widgets/legend_bar.dart';
 import '../widgets/legend_item.dart';
@@ -17,42 +17,43 @@ enum TreemapLegendKind {
 }
 
 /// Builds a legend title from the configured title string.
-typedef TreemapLegendTitleBuilder =
-    Widget Function(BuildContext context, String title);
+typedef TreemapLegendTitleBuilder = Widget Function(
+  BuildContext context,
+  String title,
+);
 
 /// Builds the label widget used by discrete items and bar endpoints.
-typedef TreemapLegendLabelBuilder =
-    Widget Function(BuildContext context, TreemapLegendEntry entry);
+typedef TreemapLegendLabelBuilder = Widget Function(
+  BuildContext context,
+  TreemapLegendEntry entry,
+);
 
 /// Builds one complete discrete legend item around its resolved label.
 ///
 /// The default builder returns a configurable [TreemapLegendItem].
-typedef TreemapLegendItemBuilder =
-    Widget Function(
-      BuildContext context,
-      TreemapLegendEntry entry,
-      Widget label,
-    );
+typedef TreemapLegendItemBuilder = Widget Function(
+  BuildContext context,
+  TreemapLegendEntry entry,
+  Widget label,
+);
 
 /// Builds the color bar for sampled colors and the configured axis.
 ///
 /// The default builder returns a configurable [TreemapLegendBar].
-typedef TreemapLegendBarBuilder =
-    Widget Function(BuildContext context, List<Color> colors, Axis direction);
+typedef TreemapLegendBarBuilder = Widget Function(
+  BuildContext context,
+  List<Color> colors,
+  Axis direction,
+);
 
 /// Builds the marker for the current value on a color bar.
 ///
-/// The default builder returns a configurable [TreemapLegendPointer].
-typedef TreemapLegendPointerBuilder =
-    Widget Function(BuildContext context, Color color, double fraction);
-
-Widget _buildTreemapLegendTitle(BuildContext context, String title) =>
-    Text(title, style: Theme.of(context).textTheme.labelLarge);
-
-Widget _buildTreemapLegendLabel(
+/// Supply a [TreemapLegendPointer] with an explicit color or a custom marker.
+typedef TreemapLegendPointerBuilder = Widget Function(
   BuildContext context,
-  TreemapLegendEntry entry,
-) => Text(entry.label, style: Theme.of(context).textTheme.bodyMedium);
+  Color color,
+  double fraction,
+);
 
 Widget _buildTreemapLegendItem(
   BuildContext context,
@@ -70,7 +71,7 @@ Widget _buildTreemapLegendPointer(
   BuildContext context,
   Color color,
   double fraction,
-) => const TreemapLegendPointer();
+) => TreemapLegendPointer(color: color);
 
 Widget _wrapTreemapLegend(BuildContext context, Widget child) =>
     TreemapOverlayContainer(padding: const EdgeInsets.all(8), child: child);
@@ -85,8 +86,8 @@ final class TreemapLegendConfig {
     this.wrapperBuilder = _wrapTreemapLegend,
     this.spacing = 8,
     this.semanticsLabel = 'Treemap legend',
-    this.titleBuilder = _buildTreemapLegendTitle,
-    this.labelBuilder = _buildTreemapLegendLabel,
+    required this.titleBuilder,
+    required this.labelBuilder,
     this.itemBuilder = _buildTreemapLegendItem,
     this.runSpacing = 4,
   }) : assert(spacing >= 0),
@@ -111,11 +112,11 @@ final class TreemapLegendConfig {
     this.wrapperBuilder = _wrapTreemapLegend,
     this.spacing = 8,
     this.semanticsLabel = 'Treemap legend',
-    this.titleBuilder = _buildTreemapLegendTitle,
-    this.labelBuilder = _buildTreemapLegendLabel,
+    required this.titleBuilder,
+    required this.labelBuilder,
     this.segmented = false,
     this.barBuilder = _buildTreemapLegendBar,
-    this.pointerBuilder = _buildTreemapLegendPointer,
+    required this.pointerBuilder,
     this.horizontalBarSize = const Size(160, 20),
     this.verticalBarSize = const Size(20, 120),
     this.pointerExtent = 18,

@@ -1,7 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:any_treemap/any_treemap.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

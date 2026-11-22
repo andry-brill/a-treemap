@@ -1522,6 +1522,15 @@ List<PlaygroundProperty> propertyDefinitions() {
   );
 
   c(
+    'presentation.recipe',
+    'Presentation recipe',
+    'Preview',
+    'Use copyable Material, Cupertino, or core-widget breadcrumb, legend and tooltip builders. The controls option retains the playground builders.',
+    'controls',
+    ['controls', 'material', 'cupertino', 'custom'],
+  );
+
+  c(
     'preview.mode',
     'Preview mode',
     'Preview',
@@ -1660,6 +1669,16 @@ List<PlaygroundProperty> propertyDefinitions() {
 }
 
 String? propertyDisabledReason(String key, PlaygroundConfig config) {
+  if (config.text('presentation.recipe') != 'controls' &&
+      const {
+        'breadcrumbs.itemBuilder',
+        'legend.titleBuilder',
+        'legend.labelBuilder',
+        'legend.pointerBuilder',
+        'tooltip.containerBuilder',
+      }.contains(key)) {
+    return 'Supplied by the selected presentation recipe. Choose controls to edit.';
+  }
   final scale = config.text('color.scale');
   final mode = config.text('preview.mode');
   if (key == 'data.revision' &&

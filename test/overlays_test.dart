@@ -1,5 +1,7 @@
+import 'support/overlay_builders.dart';
+
 import 'package:any_treemap/any_treemap.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/pump_app.dart';
@@ -197,6 +199,9 @@ void main() {
     expect(discrete.semanticsLabel, 'Categories');
 
     const bar = TreemapLegendConfig.bar(
+      titleBuilder: testLegendTitle,
+      labelBuilder: testLegendLabel,
+
       horizontalBarSize: Size(210, 14),
       verticalBarSize: Size(14, 130),
       wrapperBuilder: _testLegendWrapper,
@@ -221,7 +226,7 @@ void main() {
     expect(bar.showLabels, isFalse);
   });
 
-  testWidgets('default builders compose configurable standard widgets', (
+  testWidgets('explicit builders compose configurable standard widgets', (
     tester,
   ) async {
     final tree = TreemapNormalizer.normalize(
@@ -260,17 +265,30 @@ void main() {
     await tester.pumpTreemapApp(
       Column(
         children: [
-          TreemapBreadcrumbsView<String>(presentation: presentation),
+          TreemapBreadcrumbsView<String>(
+            config: const TreemapBreadcrumbsConfig(
+              itemBuilder: testBreadcrumbItem,
+            ),
+            presentation: presentation,
+          ),
           TreemapLegendView<String>(
             scale: TreemapColorScale.exact(const {
               1: Colors.blue,
             }, fallback: Colors.grey),
-            config: const TreemapLegendConfig.discrete(),
+            config: const TreemapLegendConfig.discrete(
+              titleBuilder: testLegendTitle,
+              labelBuilder: testLegendLabel,
+            ),
           ),
           TreemapLegendView<String>(
             scale: scale,
             presentation: presentation,
-            config: const TreemapLegendConfig.bar(showLabels: false),
+            config: const TreemapLegendConfig.bar(
+              titleBuilder: testLegendTitle,
+              labelBuilder: testLegendLabel,
+              pointerBuilder: testLegendPointer,
+              showLabels: false,
+            ),
           ),
           SizedBox(
             width: 300,
@@ -292,7 +310,7 @@ void main() {
       surfaceSize: const Size(600, 500),
     );
 
-    expect(find.byType(TreemapBreadcrumbItem), findsNWidgets(2));
+    expect(find.byType(GestureDetector), findsNWidgets(2));
     expect(find.byType(TreemapBreadcrumbSeparator), findsOneWidget);
     expect(find.byType(TreemapLegendItem), findsOneWidget);
     expect(find.byType(TreemapLegendBar), findsOneWidget);
@@ -358,6 +376,8 @@ void main() {
               labels: const {1: 'one'},
             ),
             config: const TreemapLegendConfig.discrete(
+              titleBuilder: testLegendTitle,
+
               wrapperBuilder: _testLegendWrapper,
               labelBuilder: _testLegendLabel,
               itemBuilder: _testLegendItem,
@@ -629,7 +649,10 @@ void main() {
             tiles: testTreemapTiles(colorScale: scale),
             labels: testTreemapLabels(),
             surrounding: TreemapBreadcrumbs(
-              config: TreemapBreadcrumbsConfig(position: position),
+              config: TreemapBreadcrumbsConfig(
+                itemBuilder: testBreadcrumbItem,
+                position: position,
+              ),
             ),
           ),
         ),
@@ -647,7 +670,12 @@ void main() {
             labels: testTreemapLabels(),
             surrounding: TreemapLegend(
               scale: scale,
-              config: TreemapLegendConfig.bar(position: position),
+              config: TreemapLegendConfig.bar(
+                titleBuilder: testLegendTitle,
+                labelBuilder: testLegendLabel,
+                pointerBuilder: testLegendPointer,
+                position: position,
+              ),
             ),
           ),
         ),

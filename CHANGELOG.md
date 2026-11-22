@@ -1,5 +1,41 @@
 # Changelog
 
+## 5.0.0
+
+- **Breaking:** the production library is design-system independent. Removed the
+  Material `TreemapBreadcrumbItem` and its `ButtonStyle` API; supply an item
+  builder or copy an application-owned recipe from the example.
+- **Breaking:** breadcrumb configurations require `itemBuilder`, and breadcrumb
+  layers/views require `config`. Both legend constructors require `titleBuilder`
+  and `labelBuilder`; bar legends also require `pointerBuilder`.
+- **Breaking:** `TreemapLegendPointer.color` is required. Core legend text and
+  pointers no longer read Material themes. Neutral visual/behavior defaults and
+  existing `copyWith` builder retention remain unchanged.
+- **Breaking:** raised minimum SDKs to Dart 3.13 and Flutter 3.47.
+- Added Material, Cupertino and core-widget recipes with native/custom keyboard
+  interaction, semantics, theme updates and reduced-motion support. The catalog
+  now has 71 presets, with copy-and-use instructions for all three recipes.
+- Migrated example/test Material hosts to `material_ui`; UI packages remain
+  outside production dependencies. Added design-boundary checks, WidgetsApp
+  coverage, recipe interaction tests and reviewed light/dark visual baselines.
+
+### Migrating to 5.0.0
+
+The production library uses only Flutter's design-neutral APIs. It has no Material or Cupertino dependency and does not look up either theme. Neutral appearance, tooltip, separator, spacing and interaction defaults remain available.
+
+| Before | 5.0.0 replacement |
+| --- | --- |
+| `TreemapBreadcrumbItem`, including its `buttonStyle` | Supply your own item builder, or copy `MaterialTreemapBreadcrumbItem` / `CupertinoTreemapBreadcrumbItem` from the recipes. Material `buttonStyle` belongs to the Material recipe only. |
+| `TreemapBreadcrumbsConfig()` | Supply `itemBuilder`. |
+| `TreemapBreadcrumbs()` / `TreemapBreadcrumbsView()` | Supply an explicit `config`. |
+| `TreemapLegendConfig.discrete()` | Supply `titleBuilder` and `labelBuilder`. |
+| `TreemapLegendConfig.bar()` | Supply `titleBuilder`, `labelBuilder`, and `pointerBuilder`. |
+| `TreemapLegendPointer()` | Supply `color`; there is no theme fallback. |
+
+Legend builders are required even when the corresponding text is hidden, so configurations remain valid when reused or copied. `copyWith` retains existing builders unless you replace them. Chart/data/layout APIs, including minimum-size aggregation and aggregate navigation, are unchanged.
+
+See the [copy-and-use recipes](example/lib/recipes/README.md) for complete Material, Cupertino and WidgetsApp examples. These files belong to your application after copying; they are not exported package APIs. Only applications choosing a design-system recipe need to add `material_ui` or `cupertino_ui`. This package's Material test hosts use a dev dependency that is not installed transitively for consumers.
+
 ## 4.0.1
 
 - Replaced unnecessary Material imports in appearance configuration and color

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Compact padding input with one slider for equal values on all four sides.
 class PaddingInput extends StatefulWidget {

@@ -5,7 +5,7 @@ import 'package:any_treemap_example/playground/padding_input.dart';
 import 'package:any_treemap_example/playground/padding_values.dart';
 import 'package:any_treemap_example/playground/property_editor.dart';
 import 'package:any_treemap_example/playground/store.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _prefix = 'layout.outerPadding';

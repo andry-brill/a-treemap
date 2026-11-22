@@ -104,11 +104,14 @@ enum TreemapInsufficientSpacePolicy {
   error,
 }
 
-typedef TreemapNodeComparator<K> =
-    int Function(TreemapNode<K> a, TreemapNode<K> b);
+typedef TreemapNodeComparator<K> = int Function(
+  TreemapNode<K> a,
+  TreemapNode<K> b,
+);
 
-typedef TreemapLayoutRuleResolver<K> =
-    TreemapLayoutRule<K>? Function(TreemapLayoutContext<K> context);
+typedef TreemapLayoutRuleResolver<K> = TreemapLayoutRule<K>? Function(
+  TreemapLayoutContext<K> context,
+);
 
 /// Describes optional layout choices that can inherit from another rule.
 final class TreemapLayoutRule<K> {
@@ -204,12 +207,12 @@ final class TreemapLayoutContext<K> {
 /// Resolves layout rules by root, depth, parent key, and callback.
 final class TreemapLayoutPolicy<K> {
   const TreemapLayoutPolicy({
-    TreemapLayoutRule<K>? rootRule,
+    this._rootRule,
     this.byChildDepth = const {},
     this.byParentKey = const {},
     this.resolver,
     this.inheritResolvedRule = true,
-  }) : _rootRule = rootRule;
+  });
 
   final TreemapLayoutRule<K>? _rootRule;
   TreemapLayoutRule<K> get rootRule => _rootRule ?? TreemapLayoutRule<K>();
@@ -257,7 +260,7 @@ final class TreemapLayoutPolicy<K> {
 /// Configures geometry, visible depth, minimum-node handling, and rule resolution.
 final class TreemapLayoutConfig<K> {
   const TreemapLayoutConfig({
-    TreemapLayoutPolicy<K>? policy,
+    this._policy,
     this.outerPadding = TreemapInsets.zero,
     this.levelPadding = TreemapInsets.zero,
     this.innerSpacing = 0,
@@ -267,7 +270,7 @@ final class TreemapLayoutConfig<K> {
     this.minimumArea = 0,
     this.minimumNodePolicy = TreemapMinimumNodePolicy.show,
     this.insufficientSpacePolicy = TreemapInsufficientSpacePolicy.show,
-  }) : _policy = policy;
+  });
 
   final TreemapLayoutPolicy<K>? _policy;
   TreemapLayoutPolicy<K> get policy => _policy ?? TreemapLayoutPolicy<K>();

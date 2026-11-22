@@ -2,17 +2,17 @@
 
 [![CI](https://github.com/andry-brill/a-treemap/actions/workflows/ci.yml/badge.svg)](https://github.com/andry-brill/a-treemap/actions/workflows/ci.yml)
 
-A composable Flutter treemap for immutable hierarchical data. It separates data, geometry, interaction, and presentation so an application can use the included Material-oriented layers, replace only one layer, or consume the layout engine without rendering a chart.
+A composable Flutter treemap for immutable hierarchical data. It separates data, geometry, interaction, and presentation so an application can use the included design-independent layers, replace only one layer, or consume the layout engine without rendering a chart.
 
 The package includes eight layout algorithms, branch-specific layout rules, responsive aggregation, typed selection and navigation, keyboard support, color scales, legends, breadcrumbs, tooltips, canvas or widget labels, and keyed geometry transitions.
 
 ![App Screenshot](https://raw.githubusercontent.com/andry-brill/a-treemap/main/example/web/example.png)
 
-> You might also like my other packages: [any_timeago](https://pub.dev/packages/any_timeago), [any_sparklines](https://pub.dev/packages/any_sparklines), and [any_borders](https://pub.dev/packages/any_borders).
+> You might also like my other packages: [any_borders](https://pub.dev/packages/any_borders), [any_compact_format](https://pub.dev/packages/any_compact_format), [any_sparklines](https://pub.dev/packages/any_sparklines), and [any_timeago](https://pub.dev/packages/any_timeago).
 
 ## Requirements and installation
 
-`any_treemap` requires Dart 3.8 or later and Flutter 3.32 or later.
+`any_treemap` requires Dart 3.13 or later and Flutter 3.47 or later.
 
 ```console
 flutter pub add any_treemap
@@ -35,7 +35,7 @@ flutter pub get
 flutter run -d chrome
 ```
 
-The **Example** chooser loads one of 68 named presets. **Data** selects a shared dataset, and the property panel controls layout, colors, visual layers, interaction, accessibility, animation, and preview dimensions. Property info buttons explain each setting. On narrow screens, open **Properties** from the toolbar.
+The **Example** chooser loads one of 71 named presets. **Data** selects a shared dataset, and the property panel controls layout, colors, visual layers, interaction, accessibility, animation, and preview dimensions. Property info buttons explain each setting. On narrow screens, open **Properties** from the toolbar.
 
 Preset links contain only an example key, such as `?example=appearance-auto-visible`. Editing any property switches to **Custom** and puts the complete configuration, including `data`, in the URL. **Copy link** includes valid pending edits. Browser Back/Forward restores committed changes; navigation, current selection, hover, and tooltips remain temporary.
 
@@ -49,7 +49,7 @@ A chart always needs a prepared hierarchy and a tile layer. Prepare it once when
 
 ```dart
 import 'package:any_treemap/any_treemap.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 final root = TreemapNode<String>(
   key: 'products',
@@ -103,7 +103,7 @@ class ProductTreemap extends StatelessWidget {
         tooltip: TreemapTooltip(
           builder: (context, details) => Text(
             '${details.label}: ${details.weight}',
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: Color(0xFFFFFFFF)),
           ),
         ),
         layout: const TreemapLayoutConfig(
@@ -697,7 +697,11 @@ ValueListenableBuilder<TreemapPresentationState<String>>(
   builder: (context, state, _) => TreemapLegendView<String>(
     scale: scale,
     presentation: state,
-    config: const TreemapLegendConfig.bar(),
+    config: TreemapLegendConfig.bar(
+      titleBuilder: (context, title) => Text(title),
+      labelBuilder: (context, entry) => Text(entry.label),
+      pointerBuilder: (context, color, fraction) => TreemapLegendPointer(color: color),
+    ),
   ),
 );
 // Dispose output with its owning widget.
@@ -1177,7 +1181,11 @@ TreemapChart<String>(
   labels: TreemapCanvasLabels(),
   surrounding: TreemapLegend(
     scale: scale,
-    config: const TreemapLegendConfig.bar(),
+    config: TreemapLegendConfig.bar(
+      titleBuilder: (context, title) => Text(title),
+      labelBuilder: (context, entry) => Text(entry.label),
+      pointerBuilder: (context, color, fraction) => TreemapLegendPointer(color: color),
+    ),
   ),
 );
 ```
@@ -1198,7 +1206,11 @@ final resolved = scale.resolveDomain([15, 30, 55]);
 final color = resolved.colorFor(30);
 final legend = TreemapLegendView<String>(
   scale: resolved,
-  config: const TreemapLegendConfig.bar(),
+  config: TreemapLegendConfig.bar(
+      titleBuilder: (context, title) => Text(title),
+      labelBuilder: (context, entry) => Text(entry.label),
+      pointerBuilder: (context, color, fraction) => TreemapLegendPointer(color: color),
+    ),
 );
 ```
 
@@ -1530,7 +1542,7 @@ Start and end resolve through ambient `Directionality`: they map to left and rig
 
 **`TreemapBreadcrumbs<K>`** - presentation-driven surrounding content that can also place navigation breadcrumbs directly on one side of the chart.
 
-- `config` - placement, overflow, builders, and wrapper configuration; defaults to `TreemapBreadcrumbsConfig<K>()`.
+- `config` - placement, overflow, builders, and wrapper configuration; required.
 
 It implements both `TreemapSurroundingContent<K>` and `TreemapSurroundingLayer<K>` and creates `TreemapBreadcrumbsView<K>` with the chart's presentation and navigation actions. `config.position` controls direct layer placement; a `TreemapSurroundingGrid` slot controls placement when the breadcrumb is grid content.
 
@@ -1538,7 +1550,7 @@ It implements both `TreemapSurroundingContent<K>` and `TreemapSurroundingLayer<K
 
 - `presentation` - optional immutable output; otherwise reads the nearest scope.
 - `onNavigate` - optional callback for ancestor activation. Without it, breadcrumbs are read-only.
-- `config` - breadcrumb construction and overflow policy.
+- `config` - required breadcrumb construction and overflow policy.
 
 The current item has no navigation action. Ancestor items invoke `onNavigate`; built-in chart breadcrumbs send source-key navigation through chart actions. Generated aggregate entries retain their existing navigation semantics.
 
@@ -1547,30 +1559,12 @@ The current item has no navigation action. Ancestor items invoke `onNavigate`; b
 - `position` - directional grid cell; defaults to `topCenter`.
 - `separatorBuilder` - builds a fresh separator between adjacent entries.
 - `overflow` - `wrap`, `scroll`, or `ellipsis`; defaults to horizontal scrolling.
-- `itemBuilder` - builds each complete item from context, path entry, current state, and optional action.
+- `itemBuilder` - required; builds each complete item from context, path entry, current state, and optional action.
 - `wrapperBuilder` - wraps the complete breadcrumb surface with layout or decoration.
 - `ellipsisMaximumChildren` - positive number of trailing widgets retained in ellipsis mode; defaults to `5`.
 - `overflowIndicatorBuilder` - builds the marker shown before retained content.
 
-Builders own complete widgets, including semantics and interaction. The defaults compose `TreemapBreadcrumbItem`, `TreemapBreadcrumbSeparator`, and `TreemapOverlayContainer`.
-
-**`TreemapBreadcrumbItem`** - standard accessible, animated breadcrumb item used by the default builder.
-
-- `label` - required visible text.
-- `isCurrent` - required current-level state.
-- `onPressed` - ancestor navigation action; normally null for the current item.
-- `semanticLabel` - optional spoken label replacing visible text.
-- `animationDuration` - indicator animation duration; defaults to 180 milliseconds.
-- `animationCurve` - indicator animation curve; defaults to linear.
-- `indicatorColor` - current-level color; defaults to the theme primary color.
-- `inactiveIndicatorColor` - ancestor indicator color; defaults to transparent.
-- `indicatorWidth` - bottom indicator thickness; defaults to two pixels.
-- `textStyle` - optional label style; defaults to theme body-medium.
-- `maxLines` - positive label line limit; defaults to `1`.
-- `overflow` - text overflow policy; defaults to ellipsis.
-- `buttonStyle` - optional containing `TextButton` style.
-
-The widget marks current items selected in semantics and ancestor items as buttons. Use it inside a custom `itemBuilder` to retain standard behavior with application-specific styling.
+Builders own complete widgets, including semantics, focus, keyboard and pointer interaction. The core retains neutral separator and wrapper defaults. Copy a [Material, Cupertino, or custom recipe](example/lib/recipes/README.md) for ready-to-use item builders. The old Material-based `TreemapBreadcrumbItem` is no longer exported.
 
 **`TreemapBreadcrumbSeparator`** - standard centered separator between adjacent breadcrumb items.
 
@@ -1606,12 +1600,12 @@ Without presentation state, supply a finite or explicitly resolved scale. It ren
 - `wrapperBuilder` - complete legend shell builder.
 - `spacing` - gap between title/items and individual runs; defaults to eight pixels.
 - `semanticsLabel` - base spoken label; defaults to `Treemap legend`.
-- `titleBuilder` - complete title builder.
-- `labelBuilder` - builder for each entry label.
+- `titleBuilder` - required complete title builder, even when `title` is absent.
+- `labelBuilder` - required builder for each entry label.
 - `itemBuilder` - complete color-and-label item builder.
 - `runSpacing` - cross-run gap in wrap mode; defaults to four pixels.
 
-The default builders compose theme text, `TreemapLegendItem`, and `TreemapOverlayContainer`.
+Caller-provided builders own typography. Neutral defaults compose `TreemapLegendItem` and `TreemapOverlayContainer`.
 
 **`TreemapLegendConfig.bar`** - configures a continuous sampled or segmented color bar and optional hover pointer.
 
@@ -1622,11 +1616,11 @@ The default builders compose theme text, `TreemapLegendItem`, and `TreemapOverla
 - `wrapperBuilder` - complete legend shell builder.
 - `spacing` - gap between title, bar, and related content; defaults to eight pixels.
 - `semanticsLabel` - base spoken label; defaults to `Treemap legend`.
-- `titleBuilder` - complete title builder.
-- `labelBuilder` - endpoint label builder.
+- `titleBuilder` - required complete title builder, even when `title` is absent.
+- `labelBuilder` - required endpoint label builder, even when `showLabels` is false.
 - `segmented` - uses legend-entry colors instead of continuous sampling; defaults to false.
 - `barBuilder` - builds the complete bar from resolved colors and direction.
-- `pointerBuilder` - builds the current-value marker from color and normalized fraction.
+- `pointerBuilder` - required; builds the current-value marker from color and normalized fraction.
 - `horizontalBarSize` - defaults to 160 by 20 pixels.
 - `verticalBarSize` - defaults to 20 by 120 pixels.
 - `pointerExtent` - main-axis pointer extent used for centering; defaults to 18 pixels.
@@ -1662,7 +1656,7 @@ The legend config determines whether these colors came from continuous sampling 
 
 - `symbol` - marker glyph; defaults to `▼`.
 - `dimension` - square reserved extent; defaults to 18 pixels.
-- `color` - optional marker color; defaults to theme on-surface.
+- `color` - required explicit marker color; `textStyle.color` takes precedence.
 - `textStyle` - optional additional text styling.
 
 The legend rotates this widget for vertical bars and positions it from `treemapColorFraction`.
@@ -1742,10 +1736,10 @@ For a keyboard-first chart, supply `TreemapSemantics`, set `autofocus` only when
 
 ## Validation
 
-CI runs on `windows-latest` with Flutter **3.47.3**, matching the golden baseline
-environment. It runs package and example analysis/tests, verifies layout benchmark
-budgets, and builds the example for the web. Pushes, pull requests, and manual
-runs use the same workflow.
+CI runs on `windows-latest` with pinned Flutter **3.47.3** and the latest stable
+Flutter. It runs package and example analysis/tests, verifies layout benchmark
+budgets, builds the example for the web, and checks a package publication dry run.
+Pushes, pull requests, and manual runs use the same workflow.
 
 All goldens use Flutter's standard pixel-exact comparator with **zero tolerance**.
 Generate and review golden updates on Windows with the pinned Flutter version.

@@ -23,7 +23,7 @@ class TreemapChart<K> extends StatefulWidget {
     required this.tree,
     required this.tiles,
     this.controller,
-    TreemapLayoutConfig<K> layout = const TreemapLayoutConfig(),
+    this._layout = const TreemapLayoutConfig(),
     this.labels,
     this.interaction = const TreemapInteractionConfig(),
     this.selection,
@@ -34,7 +34,7 @@ class TreemapChart<K> extends StatefulWidget {
     this.clipBehavior = Clip.none,
     this.autofocus = false,
     this.onPresentationChanged,
-  }) : _layout = layout;
+  });
 
   final TreemapNormalizedTree<K> tree;
   final TreemapTileLayer<K> tiles;

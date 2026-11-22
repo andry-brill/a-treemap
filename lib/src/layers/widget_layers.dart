@@ -156,15 +156,14 @@ final class TreemapWidgetLabels<K>
     implements TreemapLabelLayer<K>, TreemapLabelPlacementProvider<K> {
   const TreemapWidgetLabels({
     required this.builder,
-    TreemapLabelConfig<K> config = _neutralTreemapLabelConfig,
+    this._config = _neutralTreemapLabelConfig,
     this.maximumNodes,
     this.ignorePointer = true,
     this.clipBehavior = Clip.hardEdge,
     this.parentLabels,
     this.parentBuilder,
     this.reservation = const TreemapLabelReservation.none(),
-  }) : _config = config,
-       assert(maximumNodes == null || maximumNodes > 0);
+  }) : assert(maximumNodes == null || maximumNodes > 0);
 
   final TreemapStatefulNodeWidgetBuilder<K> builder;
   final TreemapLabelConfig<K> _config;

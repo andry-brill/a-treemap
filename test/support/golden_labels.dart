@@ -1,5 +1,5 @@
 import 'package:any_treemap/any_treemap.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Font bundled by the Flutter test environment.
 const goldenFontFamily = 'Ahem';

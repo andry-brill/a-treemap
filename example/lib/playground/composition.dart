@@ -1,5 +1,9 @@
 import 'package:any_treemap/any_treemap.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+
+import '../recipes/material.dart';
+import '../recipes/cupertino.dart';
+import '../recipes/custom.dart';
 
 import 'config.dart';
 import 'datasets.dart';
@@ -539,6 +543,46 @@ final class PlaygroundComposition {
           child: child,
         );
 
+  TreemapBreadcrumbItemBuilder<String>? get recipeBreadcrumb =>
+      switch (config.text('presentation.recipe')) {
+        'material' => materialTreemapBreadcrumb,
+        'cupertino' => cupertinoTreemapBreadcrumb,
+        'custom' => customTreemapBreadcrumb,
+        _ => null,
+      };
+
+  TreemapLegendTitleBuilder? get recipeTitle =>
+      switch (config.text('presentation.recipe')) {
+        'material' => materialTreemapLegendTitle,
+        'cupertino' => cupertinoTreemapLegendTitle,
+        'custom' => customTreemapLegendTitle,
+        _ => null,
+      };
+
+  TreemapLegendLabelBuilder? get recipeLabel =>
+      switch (config.text('presentation.recipe')) {
+        'material' => materialTreemapLegendLabel,
+        'cupertino' => cupertinoTreemapLegendLabel,
+        'custom' => customTreemapLegendLabel,
+        _ => null,
+      };
+
+  TreemapLegendPointerBuilder? get recipePointer =>
+      switch (config.text('presentation.recipe')) {
+        'material' => materialTreemapLegendPointer,
+        'cupertino' => cupertinoTreemapLegendPointer,
+        'custom' => customTreemapLegendPointer,
+        _ => null,
+      };
+
+  TreemapTooltipContainerBuilder? get recipeTooltip =>
+      switch (config.text('presentation.recipe')) {
+        'material' => materialTreemapTooltip,
+        'cupertino' => cupertinoTreemapTooltip,
+        'custom' => customTreemapTooltip,
+        _ => null,
+      };
+
   TreemapLegendConfig get legendConfig {
     final kind = config.text('legend.kind');
     final discrete =
@@ -596,8 +640,8 @@ final class PlaygroundComposition {
         spacing: config.number('legend.spacing'),
         runSpacing: config.number('legend.runSpacing'),
         semanticsLabel: config.text('legend.semanticsLabel'),
-        titleBuilder: titleBuilder,
-        labelBuilder: labelBuilder,
+        titleBuilder: recipeTitle ?? titleBuilder,
+        labelBuilder: recipeLabel ?? labelBuilder,
         itemBuilder: itemBuilder,
         wrapperBuilder: (context, child) =>
             wrapper(context, child, config.text('legend.wrapper')),
@@ -610,8 +654,8 @@ final class PlaygroundComposition {
       overflow: overflow,
       spacing: config.number('legend.spacing'),
       semanticsLabel: config.text('legend.semanticsLabel'),
-      titleBuilder: titleBuilder,
-      labelBuilder: labelBuilder,
+      titleBuilder: recipeTitle ?? titleBuilder,
+      labelBuilder: recipeLabel ?? labelBuilder,
       wrapperBuilder: (context, child) =>
           wrapper(context, child, config.text('legend.wrapper')),
       segmented: config.flag('legend.segmented'),
@@ -636,6 +680,7 @@ final class PlaygroundComposition {
         ),
       ),
       pointerBuilder: (context, color, fraction) =>
+          recipePointer?.call(context, color, fraction) ??
           switch (config.text('legend.pointerBuilder')) {
             'none' => const SizedBox.shrink(),
             'text' => Text(
@@ -647,6 +692,7 @@ final class PlaygroundComposition {
               dimension: config.number('legend.pointerExtent'),
             ),
             _ => TreemapLegendPointer(
+              color: Theme.of(context).colorScheme.onSurface,
               dimension: config.number('legend.pointerExtent'),
             ),
           },
@@ -669,7 +715,8 @@ final class PlaygroundComposition {
         wrapperBuilder: (context, child) =>
             wrapper(context, child, config.text('breadcrumbs.wrapper')),
         itemBuilder: (context, entry, current, onPressed) =>
-            TreemapBreadcrumbItem(
+            recipeBreadcrumb?.call(context, entry, current, onPressed) ??
+            MaterialTreemapBreadcrumbItem(
               label: entry.label ?? 'Other',
               isCurrent: current,
               onPressed: onPressed,
@@ -893,27 +940,31 @@ final class PlaygroundComposition {
                 suppressDuringAnimation: config.flag(
                   'tooltip.suppressDuringAnimation',
                 ),
-                containerBuilder: (context, child) => TreemapTooltipContainer(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.inverseSurface,
-                    borderRadius: BorderRadius.circular(
-                      config.text('tooltip.containerBuilder') == 'rounded'
-                          ? 8
-                          : 0,
+                containerBuilder: (context, child) =>
+                    recipeTooltip?.call(context, child) ??
+                    TreemapTooltipContainer(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.inverseSurface,
+                        borderRadius: BorderRadius.circular(
+                          config.text('tooltip.containerBuilder') == 'rounded'
+                              ? 8
+                              : 0,
+                        ),
+                      ),
+                      child: child,
                     ),
-                  ),
-                  child: child,
-                ),
               ),
               builder: (context, details) => Text(
                 '${title(details)}: ${value(details)}${config.text('tooltip.builder') == 'details' ? '\nDepth ${details.depth} · ${details.key}' : ''}',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onInverseSurface,
-                ),
+                style: recipeTooltip != null
+                    ? null
+                    : TextStyle(
+                        color: Theme.of(context).colorScheme.onInverseSurface,
+                      ),
               ),
             )
           : null,
@@ -1046,9 +1097,9 @@ final class ConfiguredWidgetLabels
   }
 
   @override
-  double? resolveParentHeaderHeight(BuildContext context) => _layer(
-    (context, details, states) => const SizedBox.shrink(),
-  ).resolveParentHeaderHeight(context);
+  double? resolveParentHeaderHeight(BuildContext context) =>
+      _layer((context, details, states) => const SizedBox.shrink())
+          .resolveParentHeaderHeight(context);
   @override
   Widget build(BuildContext context, TreemapVisualContext<String> visual) =>
       preparePlacement(context, visual).child;

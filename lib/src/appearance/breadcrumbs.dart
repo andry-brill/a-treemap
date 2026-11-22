@@ -1,45 +1,31 @@
 import 'package:flutter/widgets.dart';
 
 import '../geometry.dart';
-import '../widgets/breadcrumb_item.dart';
 import '../widgets/breadcrumb_separator.dart';
 import '../widgets/overlay_container.dart';
 import 'overlay.dart';
 
 /// Builds one complete breadcrumb, including its interaction and current state.
 ///
-/// The default builder returns a configurable [TreemapBreadcrumbItem].
-typedef TreemapBreadcrumbItemBuilder<K> =
-    Widget Function(
-      BuildContext context,
-      TreemapPathEntry<K> entry,
-      bool isCurrent,
-      VoidCallback? onPressed,
-    );
+/// Supply a design-system button or your own accessible interaction widget.
+typedef TreemapBreadcrumbItemBuilder<K> = Widget Function(
+  BuildContext context,
+  TreemapPathEntry<K> entry,
+  bool isCurrent,
+  VoidCallback? onPressed,
+);
 
 /// Builds the separator placed between adjacent breadcrumbs.
 ///
 /// The default builder returns a configurable [TreemapBreadcrumbSeparator].
-typedef TreemapBreadcrumbSeparatorBuilder =
-    Widget Function(BuildContext context);
+typedef TreemapBreadcrumbSeparatorBuilder = Widget Function(
+  BuildContext context,
+);
 
 /// Builds the marker shown when earlier breadcrumbs are omitted.
-typedef TreemapBreadcrumbOverflowIndicatorBuilder =
-    Widget Function(BuildContext context);
-
-Widget _buildTreemapBreadcrumbItem(
+typedef TreemapBreadcrumbOverflowIndicatorBuilder = Widget Function(
   BuildContext context,
-  TreemapPathEntry<Object?> entry,
-  bool isCurrent,
-  VoidCallback? onPressed,
-) {
-  final label = entry.label ?? entry.key.sourceKey?.toString() ?? 'Other';
-  return TreemapBreadcrumbItem(
-    label: label,
-    isCurrent: isCurrent,
-    onPressed: onPressed,
-  );
-}
+);
 
 Widget _buildTreemapBreadcrumbSeparator(BuildContext context) =>
     const TreemapBreadcrumbSeparator();
@@ -59,7 +45,7 @@ final class TreemapBreadcrumbsConfig<K> {
     this.position = TreemapOverlayPosition.topCenter,
     this.separatorBuilder = _buildTreemapBreadcrumbSeparator,
     this.overflow = TreemapOverflowMode.scroll,
-    this.itemBuilder = _buildTreemapBreadcrumbItem,
+    required this.itemBuilder,
     this.wrapperBuilder = _wrapTreemapBreadcrumbs,
     this.ellipsisMaximumChildren = 5,
     this.overflowIndicatorBuilder = _buildTreemapBreadcrumbOverflowIndicator,

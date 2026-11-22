@@ -11,7 +11,7 @@ import 'surrounding_grid.dart';
 /// Places presentation-driven breadcrumbs around a chart viewport.
 final class TreemapBreadcrumbs<K>
     implements TreemapSurroundingContent<K>, TreemapSurroundingLayer<K> {
-  const TreemapBreadcrumbs({this.config = const TreemapBreadcrumbsConfig()});
+  const TreemapBreadcrumbs({required this.config});
 
   final TreemapBreadcrumbsConfig<K> config;
 
@@ -32,9 +32,9 @@ final class TreemapBreadcrumbs<K>
     BuildContext context,
     Widget treemap,
     TreemapVisualContext<K> visual,
-  ) => TreemapSurroundingGrid<K>.fromMap({
-    config.position: this,
-  }).wrap(context, treemap, visual);
+  ) =>
+      TreemapSurroundingGrid<K>.fromMap({config.position: this})
+          .wrap(context, treemap, visual);
 }
 
 /// Standalone breadcrumb widget for compositions outside a chart.
@@ -43,7 +43,7 @@ class TreemapBreadcrumbsView<K> extends StatelessWidget {
     super.key,
     this.presentation,
     this.onNavigate,
-    this.config = const TreemapBreadcrumbsConfig(),
+    required this.config,
   });
 
   final TreemapPresentationState<K>? presentation;

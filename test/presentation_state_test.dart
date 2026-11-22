@@ -1,5 +1,7 @@
+import 'support/overlay_builders.dart';
+
 import 'package:any_treemap/any_treemap.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 TreemapNode<String> _tree([double value = 30]) => TreemapNode(
@@ -112,7 +114,11 @@ void main() {
                 tiles: left,
                 surrounding: TreemapLegend(
                   scale: _scale,
-                  config: const TreemapLegendConfig.bar(),
+                  config: const TreemapLegendConfig.bar(
+                    titleBuilder: testLegendTitle,
+                    labelBuilder: testLegendLabel,
+                    pointerBuilder: testLegendPointer,
+                  ),
                 ),
               ),
             ),
@@ -122,7 +128,11 @@ void main() {
                 tiles: right,
                 surrounding: TreemapLegend(
                   scale: _scale,
-                  config: const TreemapLegendConfig.bar(),
+                  config: const TreemapLegendConfig.bar(
+                    titleBuilder: testLegendTitle,
+                    labelBuilder: testLegendLabel,
+                    pointerBuilder: testLegendPointer,
+                  ),
                 ),
               ),
             ),
@@ -261,7 +271,11 @@ void main() {
               layout: TreemapLayoutConfig(maxVisibleDepth: depth),
               surrounding: TreemapLegend(
                 scale: _scale,
-                config: const TreemapLegendConfig.bar(),
+                config: const TreemapLegendConfig.bar(
+                  titleBuilder: testLegendTitle,
+                  labelBuilder: testLegendLabel,
+                  pointerBuilder: testLegendPointer,
+                ),
               ),
             ),
           ),
@@ -350,7 +364,11 @@ void main() {
                       ? _scale.resolveDomain(const [])
                       : _scale,
                   presentation: state,
-                  config: const TreemapLegendConfig.bar(),
+                  config: const TreemapLegendConfig.bar(
+                    titleBuilder: testLegendTitle,
+                    labelBuilder: testLegendLabel,
+                    pointerBuilder: testLegendPointer,
+                  ),
                 ),
               ),
             ],

@@ -5,7 +5,7 @@ import '../presentation/state.dart';
 import 'color_scale.dart';
 import 'style.dart';
 
-/// Resolves the package's Material tile appearance.
+/// Resolves the package's design-independent tile appearance.
 ///
 /// A color scale is required: this implementation never invents a
 /// palette or fallback color on behalf of the chart. A Flutter [Color]
@@ -36,9 +36,8 @@ final class TreemapAppearanceResolver<K> {
     final color = colorInput is Color
         ? colorInput
         : (resolvedScale ?? colorScale).colorFor(colorInput ?? details.weight);
-    var appearance = TreemapAppearance(
-      color: color,
-    ).merge(style.tileAppearance);
+    var appearance = TreemapAppearance(color: color)
+        .merge(style.tileAppearance);
     if (states.contains(TreemapVisualState.hovered)) {
       appearance = appearance.merge(style.hoverAppearance);
     }

@@ -1,5 +1,7 @@
+import 'support/overlay_builders.dart';
+
 import 'package:any_treemap/any_treemap.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/pump_app.dart';
@@ -304,10 +306,19 @@ void main() {
             controller: controller,
             tiles: testTreemapTiles(colorScale: scale),
             surrounding: TreemapSurroundingGrid<String>(
-              topStart: const TreemapBreadcrumbs<String>(),
+              topStart: const TreemapBreadcrumbs<String>(
+                config: TreemapBreadcrumbsConfig(
+                  itemBuilder: testBreadcrumbItem,
+                ),
+              ),
               topEnd: TreemapLegend<String>(
                 scale: scale,
-                config: const TreemapLegendConfig.bar(showLabels: false),
+                config: const TreemapLegendConfig.bar(
+                  titleBuilder: testLegendTitle,
+                  labelBuilder: testLegendLabel,
+                  pointerBuilder: testLegendPointer,
+                  showLabels: false,
+                ),
               ),
               bottomStart: const TreemapSurroundingContent<String>.widget(
                 child: Text('Static', key: ValueKey('static-content')),

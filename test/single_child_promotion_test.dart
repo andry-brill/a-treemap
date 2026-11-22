@@ -1,5 +1,7 @@
+import 'support/overlay_builders.dart';
+
 import 'package:any_treemap/any_treemap.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 TreemapNormalizedTree<K> _promote<K>(TreemapNode<K> root) =>
@@ -397,7 +399,11 @@ void main() {
                   tree: tree,
                   controller: controller,
                   tiles: identical(controller, right) ? capture : otherCapture,
-                  surrounding: const TreemapBreadcrumbs<String>(),
+                  surrounding: const TreemapBreadcrumbs<String>(
+                    config: TreemapBreadcrumbsConfig(
+                      itemBuilder: testBreadcrumbItem,
+                    ),
+                  ),
                   layout: const TreemapLayoutConfig(maxVisibleDepth: 1),
                 ),
               ),

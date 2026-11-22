@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:any_treemap/any_treemap.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:cupertino_ui/cupertino_ui.dart'
+    show CupertinoTheme, CupertinoThemeData;
 
 import 'composition.dart';
 import 'config.dart';
@@ -167,9 +169,8 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
     if (mode == 'none' || mode == 'holdLeaf') return;
     setState(() => _lastEvent = message);
     if (mode == 'snackbar') {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -240,6 +241,12 @@ class _PlaygroundPreviewState extends State<PlaygroundPreview> {
         );
       },
     );
+    if (config.text('presentation.recipe') == 'cupertino') {
+      preview = CupertinoTheme(
+        data: CupertinoThemeData(brightness: Theme.of(context).brightness),
+        child: preview,
+      );
+    }
     preview = Localizations.override(
       context: context,
       locale: Locale(

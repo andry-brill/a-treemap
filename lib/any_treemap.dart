@@ -35,7 +35,6 @@ export 'src/presentation/label_placement.dart';
 export 'src/presentation/state.dart'
     show TreemapPresentationState, TreemapPresentationScope, TreemapVisualState;
 export 'src/presentation/transitions.dart';
-export 'src/widgets/breadcrumb_item.dart';
 export 'src/widgets/breadcrumb_separator.dart';
 export 'src/widgets/legend_bar.dart';
 export 'src/widgets/legend_item.dart';

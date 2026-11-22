@@ -29,10 +29,10 @@ const _neutralTreemapLabelConfig = TreemapLabelConfig<Never>();
 final class TreemapCanvasLabels<K>
     implements TreemapLabelLayer<K>, TreemapLabelPlacementProvider<K> {
   TreemapCanvasLabels({
-    TreemapLabelConfig<K> config = _neutralTreemapLabelConfig,
+    this._config = _neutralTreemapLabelConfig,
     this.parentLabels,
     this.reservation = const TreemapLabelReservation.automatic(),
-  }) : _config = config;
+  });
 
   final TreemapParentLabelConfig? parentLabels;
 

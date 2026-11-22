@@ -1,9 +1,11 @@
+import 'support/overlay_builders.dart';
+
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:any_treemap/any_treemap.dart';
 import 'package:any_treemap/src/painters/canvas_label_painter.dart';
 import 'package:any_treemap/src/painters/tile_painter.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 TreemapNode<String> _tree() => TreemapNode(
@@ -58,7 +60,13 @@ Widget _chart({
     transition: animate ? TreemapTransitions.standard : null,
     surrounding: TreemapLegend(
       scale: scale,
-      config: legendConfig ?? const TreemapLegendConfig.bar(),
+      config:
+          legendConfig ??
+          const TreemapLegendConfig.bar(
+            titleBuilder: testLegendTitle,
+            labelBuilder: testLegendLabel,
+            pointerBuilder: testLegendPointer,
+          ),
     ),
   );
 }
@@ -146,9 +154,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final thirty = _tiles(
-      tester,
-    ).appearances[const TreemapKey.source('thirty')]!.color;
+    final thirty = _tiles(tester)
+        .appearances[const TreemapKey.source('thirty')]!
+        .color;
     controller.zoomTo('a');
     await tester.pumpAndSettle();
     expect(
@@ -200,6 +208,9 @@ void main() {
       double? pointer;
       Color? pointerColor;
       final legend = TreemapLegendConfig.bar(
+        titleBuilder: testLegendTitle,
+        labelBuilder: testLegendLabel,
+
         pointerBuilder: (_, color, fraction) {
           pointer = fraction;
           pointerColor = color;
@@ -280,6 +291,9 @@ void main() {
         ],
       );
       final legend = TreemapLegendConfig.bar(
+        titleBuilder: testLegendTitle,
+        labelBuilder: testLegendLabel,
+
         pointerBuilder: (_, color, fraction) =>
             Text('pointer $fraction', key: const ValueKey('pointer')),
       );
@@ -336,7 +350,12 @@ void main() {
             presentation: TreemapPresentationState.fromData(
               tree: TreemapNormalizer.normalize(_tree()),
             ),
-            config: const TreemapLegendConfig.bar(segmented: true),
+            config: const TreemapLegendConfig.bar(
+              titleBuilder: testLegendTitle,
+              labelBuilder: testLegendLabel,
+              pointerBuilder: testLegendPointer,
+              segmented: true,
+            ),
           ),
         ),
       );
@@ -353,7 +372,12 @@ void main() {
                 ),
               ),
             ),
-            config: const TreemapLegendConfig.bar(segmented: true),
+            config: const TreemapLegendConfig.bar(
+              titleBuilder: testLegendTitle,
+              labelBuilder: testLegendLabel,
+              pointerBuilder: testLegendPointer,
+              segmented: true,
+            ),
           ),
         ),
       );
@@ -365,7 +389,11 @@ void main() {
         _app(
           TreemapLegendView(
             scale: scale.resolveDomain([2, 8]),
-            config: const TreemapLegendConfig.bar(),
+            config: const TreemapLegendConfig.bar(
+              titleBuilder: testLegendTitle,
+              labelBuilder: testLegendLabel,
+              pointerBuilder: testLegendPointer,
+            ),
           ),
         ),
       );

@@ -41,7 +41,7 @@ Presets stay grouped in `lib/scenarios/*.dart`. Each `ExamplePreset` supplies it
 
 ## Validation
 
-Run `flutter analyze`, `flutter test`, and `flutter build web` here, plus package analysis/tests at the repository root. Tests cover all 68 presets, configuration/URL round trips, draft validation, browser route restoration, responsive/help UI, interaction/state ownership, and chart goldens. The existing example golden images moved into `test/goldens` without changing their baselines.
+Run `flutter analyze`, `flutter test`, and `flutter build web` here, plus package analysis/tests at the repository root. Tests cover all 71 presets, configuration/URL round trips, draft validation, browser route restoration, responsive/help UI, interaction/state ownership, and chart goldens. The existing example golden images moved into `test/goldens` without changing their baselines.
 
 CI runs only on `windows-latest` with Flutter **3.47.3**. All package and example
 goldens use Flutter's standard pixel-exact comparator with **zero tolerance**;
@@ -77,3 +77,9 @@ configuration; all background sources belong to tile layers, including invisible
 ones. Every custom `TreemapTileLayer` implements its nullable `appearance` getter
 directly; wrappers can forward their delegate's source. Composite layers name
 their source explicitly. Return `null` only when no shared background is needed.
+
+## Presentation recipes
+
+The three `appearance-*-recipe` scenarios select **Preview → Presentation recipe**. Switch between Material, Cupertino and custom widgets, compare bar/discrete legends, drill into a category and return through the breadcrumbs. Theme, RTL, text scale and reduced-motion controls remain available. Recipe-owned builder controls are disabled until you select `controls`.
+
+[Copy-and-use instructions and source](lib/recipes/README.md) show how to use these builders outside the playground. The example depends on `material_ui` and `cupertino_ui`; the production library does not. Recipes read the current theme during building, and their source has no dependency on playground configuration classes.
